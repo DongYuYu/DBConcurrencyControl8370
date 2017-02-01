@@ -341,10 +341,15 @@
 [0m[[0minfo[0m] [0m[0m
 [0m[[0minfo[0m] [0mPrint logBuf[0m
 [0m[[0minfo[0m] [0m(2,40,[B@52af6cff,[B@6df97b55)[0m
-[0m[[0minfo[0m] [0mcommitting[0m
 [0m[[0minfo[0m] [0mcommit (2)[0m
+[0m[[0minfo[0m] [0mlogBuf.size: 2[0m
 [0m[[0minfo[0m] [0mlogBuf @ 0: (2,40,[B@52af6cff,[B@6df97b55)[0m
 [0m[[0minfo[0m] [0mlogBuf @ 1: (2,-2,null,null)[0m
 [0m[[0minfo[0m] [0mwritten[0m
-[0m[[0minfo[0m] [0m(2,40,[B@2cb4c3ab,[B@13c78c0b[0m
-[0m[[0minfo[0m] [0m(2,-2,[B@12843fce,[B@3dd3bcd[0m
+[0m[[0minfo[0m] [0mwritten[0m
+[0m[[0minfo[0m] [0mread: 264count: 0[0m
+[0m[[0minfo[0m] [0m(2,-2,[B@2cb4c3ab,[B@13c78c0b[0m
+[0m[[0minfo[0m] [0mcount: 1[0m
+[0m[[0minfo[0m] [0m(2,40,[B@12843fce,[B@3dd3bcd[0m
+[0m[[0minfo[0m] [0mcount: 2[0m
+[0m[[0minfo[0m] [0m(2,-2,[B@97e1986,[B@26f67b76[0m

@@ -1,4 +1,22 @@
-
+/*TODO
+Medhi: implement look ahead locking:
+       1. declare read/write set : Map: (oid, (num_reads,writes))
+       2. on each read operation
+       	  a. do we own the write lock? If so, read?
+	  b. if we don't own the write lock, see if you will need to write in the future. If so, pick up write lock. Then read. 
+	  c. if we don't need to write in the future, get a read lock. 
+       3. on each read/write operation decrement the map value for the oid key
+Nick: implement expanding / shrinking phase detection
+	  1. keep a flag: 0 ==> expanding, 1 ==> shrinking
+	  2. after evey read check if we're expanding or shrinking.
+	  3. if we're shrinking, release read locks. (don't release write locks until commit)
+	  4. release all write locks at the commit phase.
+	     writeLocks = ArrayList[oid: Int]
+	     for i <- writeLocks.indices{
+	     	 LockTable.get(writeLocks(i)).unlock()
+	     }
+implement PDB.init_store
+*/
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** @author  John Miller
  *  @version 1.1
@@ -65,6 +83,7 @@ class Transaction (sch: Schedule) extends Thread
      */
     def read (oid: Int): VDB.Record =
     {
+	LockTable.read_lock( tid, oid).lock()
         VDB.read (tid, oid)._1
     } // read
 
