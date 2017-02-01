@@ -75,16 +75,6 @@ class Schedule (s: List [Op])
 	  op1._3 == op2._3 
      
 
-     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-     /** Reentrant method to visit a node in a graph as part of the DFS based cycleDetection method
-     *  @param node  an integer indicating which node of the graph we are visiting
-     *  @param ch  an array of sets of integers representing agency lists which define a directed graph
-     */
-     def visit (node: Int, ch: Array[Set[Int]]): Boolean = 
-     {
-	false
-     } 
-
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Determine whether this schedule is View Serializable (VSR).
      *  @param nTrans  the number of transactions in this schedule
@@ -147,7 +137,7 @@ object Schedule2
      *  @param nOps    the number of operations per transaction
      *  @param nObjs   the number of data objects accessed
      */
-    def genSchedule2 (transId: Int, nOps: Int, nObjs: Int): Schedule =
+    def genSchedule (transId: Int, nOps: Int, nObjs: Int): Schedule =
     {
 	val rand = scala.util.Random;
 	var num1, num2, num3: Int = 0

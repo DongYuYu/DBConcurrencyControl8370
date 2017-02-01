@@ -17,20 +17,28 @@
  */
 
 package trans
-import scalation.graphalytics.Graph
-import scalation.graphalytics.Cycle.hasCycle
-
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Operation` object defines the 'Op' type and read (r) and write (w) operation-types.
  */
 object Operation
 {
-    type Op = (Char, Int, Int)
-    val r = 'r'
-    val w = 'w'
+    type Op = (Char, Int, Int)                        // 3-tuple (r/w, tid, oid)
+    val r = 'r'                                       // r -> read
+    val w = 'w'                                       // w -> write
 
-} // Op object
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Determine whether 'o' and 'p' are conflicting operations (at least one write,
+     *  different transactions, same data object.
+     *  @param o  the first operation
+     *  @param p  the second operation
+     */
+    def conflicts (o: Op, p: Op): Boolean =
+    {
+        (o._1 == w || p._1 == w) && o._2 != p._2 && o._3 == p._3
+    } // conflicts
+
+} // Operation object
 
 import Operation._
 
@@ -40,50 +48,19 @@ import Operation._
  */
 class Schedule (s: List [Op])
 {
-
-	var white: Set[Int] = Set[Int]()
-	var grey:  Set[Int] = Set[Int]()
-
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Determine whether this schedule is Conflict Serializable (CSR).
-     *  @see www.cs.uga.edu/~jam/scalation_1.2/src/main/scala/scalation/graphalytics/Graph.scala
      *  @see www.cs.uga.edu/~jam/scalation_1.2/src/main/scala/scalation/graphalytics/Cycle.scala
      *  @param nTrans  the number of transactions in this schedule
      */
     def isCSR (nTrans: Int): Boolean =
     {
-	var ret: Boolean = false;
-        val ch = Array.ofDim [Set [Int]] (nTrans)
-	for (i <-ch.indices) ch(i)=Set[Int]()
-        for (i <- s.indices ; j<-i+1 until s.size) if( conflict( s(i),s(j) ) ) ch(s(i)._2)+= s(j)._2
-        val g = new Graph(ch)
-        g.printG()
-	!hasCycle(g)
-	
+        val g = new Graph (Array.fill (nTrans)(Set [Int] ()))
+        for (i <- s.indices; j <- i+1 until s.size if conflicts (s(i), s(j))) g.ch(s(i)._2) += s(j)._2
+        g.printG ()
+        // I M P L E M E N T
+        false
     } // isCSR
-    
-    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /**Detect conflicts in a schedule.
-     *@param op1  the first operation
-     *@param op2  the second operation
-     */
-
-     def conflict(op1: Op, op2: Op): Boolean =
-     
-	( op1._1 == w || op2._1 == w )     &&	 
-	  op1._2 != op2._2                 && 
-	  op1._3 == op2._3 
-     
-
-     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-     /** Reentrant method to visit a node in a graph as part of the DFS based cycleDetection method
-     *  @param node  an integer indicating which node of the graph we are visiting
-     *  @param ch  an array of sets of integers representing agency lists which define a directed graph
-     */
-     def visit (node: Int, ch: Array[Set[Int]]): Boolean = 
-     {
-	false
-     } 
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Determine whether this schedule is View Serializable (VSR).
@@ -91,10 +68,20 @@ class Schedule (s: List [Op])
      */
     def isVSR (nTrans: Int): Boolean =
     {
-        // I M P L E M E N T
+        // I M P L E M E N T - bonus
         false
     } // isVSR
 
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Return the ith operation in the schedule.
+     *  @param i  the index value
+     */
+    def apply (i: Int): Op = s(i)
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Return the range for the schedule indices.
+     */
+    def indices: Range = 0 until s.size
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Iterate over the schedule element by element.
@@ -115,70 +102,44 @@ class Schedule (s: List [Op])
 
 } // Schedule class
 
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-/** The `Schedule` companion object provides a method to randomly generate a schedule.
+/** The `Schedule` companion object provides factory methods for building schedules.
  */
 object Schedule
 {
-//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Randomly generate a schedule.
      *  @param nTrans  the number of transactions
      *  @param nOps    the number of operations per transaction
      *  @param nObjs   the number of data objects accessed
      */
-    def genSchedule (nTrans: Int, nOps: Int, nObjs: Int): Schedule =
+    def gen (nTrans: Int, nOps: Int, nObjs: Int): Schedule =
     {
-	val total = nTrans * nOps
-	val rand = scala.util.Random;
-	var num1, num2, num3: Int = 0
-		 
-	val s = (for (i <- 0 until total) yield (if (rand.nextInt(2)>.5) r else w,
-	      	     	     	   	  	rand.nextInt(nTrans),
-						rand.nextInt(nObjs))).toList
-        return new Schedule(s)
-    } // genSchedule	
-}
+        val total = nTrans * nOps
+        val s = (for (i <- 0 until total) yield (w, 0, 0)).toList
+        // F I X  I M P L E M E N T A T I O N - randomize the 3-tuples
+        new Schedule (s)
+    } // gen
 
-object Schedule2
-{
-//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /** Randomly generate a schedule.
-     *  @param nTrans  the number of transactions
-     *  @param nOps    the number of operations per transaction
-     *  @param nObjs   the number of data objects accessed
-     */
-    def genSchedule (transId: Int, nOps: Int, nObjs: Int): Schedule =
-    {
-	val rand = scala.util.Random;
-	var num1, num2, num3: Int = 0
-		 
-	val s = (for (i <- 0 until nOps) yield (if (rand.nextInt(2)>.5) r else w,
-	      	     	     	   	  	transId,
-						rand.nextInt(nObjs))).toList
-        return new Schedule(s)
-    } // genSchedule	
-}
+} // Schedule object
 
-import Schedule._
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `ScheduleTest` object is used to test the `Schedule` class.
  *  > run-main trans.ScheduleTest
  */
 object ScheduleTest extends App
 {
-    var schedules = Array.ofDim[Schedule](100)
-    val numTrans = 3
-    val rand = scala.util.Random;
-    val maxOps = 5;
+    val s1 = new Schedule (List ( (r, 0, 0), (r, 1, 0), (w, 0, 0), (w, 1, 0) ))
+    val s2 = new Schedule (List ( (r, 0, 0), (r, 1, 1), (w, 0, 0), (w, 1, 1) ))
 
-    for(i <- schedules.indices) schedules(i) = genSchedule(numTrans,rand.nextInt(maxOps),2);
+    println (s"s1 = $s1 is CSR? ${s1.isCSR (2)}")
+    println (s"s1 = $s1 is VSR? ${s1.isVSR (2)}")
+    println (s"s2 = $s2 is CSR? ${s2.isCSR (2)}")
+    println (s"s2 = $s2 is VSR? ${s2.isVSR (2)}")
 
-    for(i <- schedules.indices)
-    {
-	//println (s"schedules(i) = $schedules(i) is CSR? ${schedules(i).isCSR (numTrans)}")
-	println("schedules(i) = " + schedules(i) + " is CSR? " + schedules(i).isCSR (numTrans) )
-	println ()
-    }
-     
+    println (s"s3 = ${Schedule.gen (3, 2, 2)}")
+
 } // ScheduleTest object
 
