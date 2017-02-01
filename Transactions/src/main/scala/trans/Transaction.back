@@ -1,0 +1,169 @@
+package trans
+import Operation._
+
+object SchedulerMaker
+{
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    	/** Randomly generate a schedule of operations for a transaction.
+     	*  @param transId  the transaction ID associated with the transaction for which we are creating a schedule.
+     	*  @param nOps     the number of operations to be completed by the transaction.
+     	*  @param nObjs    the number of objects the transaction is aware of. 
+     	*/
+    def makeSchedule (transId: Int, nOps: Int, nObjs: Int): Schedule =
+    {
+	val rand = scala.util.Random;
+	var num1, num2, num3: Int = 0
+		 
+	val s = (for (i <- 0 until nOps) yield (if (rand.nextInt(2)>.5) r else w,
+	      	     	     	   	  	transId,
+						rand.nextInt(nObjs))).toList
+        return new Schedule(s)
+    } // genSchedule	
+}
+
+import SchedulerMaker._
+
+import scala.collection.mutable.Map
+import scala.collection.mutable.Queue
+
+//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+/**The companion object for the Transaction class. Defines the lock table and wait queues for the transactions.
+*  locktable:  Map(o_id, (lock_value, num_read_locks)
+*  waitQueues: List[Queue[Lock]]
+*/
+object Transaction
+{
+	var lockTable  = Map[Int,(Int,Int)]()
+	var waitQueues = List[Queue[Object]]()
+	val read       = 0;
+	val write      = 1;
+}
+
+import Transaction._
+
+//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+/**The Transaction class represens a database transaction.
+*/
+class Transaction(tid: Int, sch: Schedule) extends Thread
+{
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**A list of the locks held by this transaction.
+	*  locks = List[(o_id, lock_value)]
+	*/
+	var locks = List[(Int, Int)]()
+	
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**Run() method for the threaded Transaction class.
+	*/
+	override def run()
+	{
+		//for(i<-sch) println(i)
+		//println(sch)
+		for( i <- 0 until sch.s.length ) runOp(sch.s(i),i)
+	}
+	
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**Method for executing an operation contained within a transaction's schedule.
+	*  @param op  the operation to be run by the transaction.  
+	*/
+	def runOp(op: Op, opIndex: Int) : Boolean =
+	{
+		if( op._1 == r ) read(op._3, opIndex)
+		else write(op._3, opIndex)
+		
+	}
+	
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**Method for reading an object.
+	*  @param obj  the object ID of the object to be read by the transaction.  
+	*/
+	def read(o_id: Int, op_index: Int) : Boolean =
+	{
+		if( !( holds_lock(o_id) ) ) read_lock(o_id)
+		else{}
+		recoverable_read(o_id)
+		if( can_release(o_id, op_index) ) unlock(o_id)
+	}
+	
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**Method for writing an object to disk.
+	*  @param o_id  the object ID of the object to be written by the transaction.
+	*/
+	def write(o_id: Int, op_index: Int) : Boolean =
+	{
+		if( !(holds_lock(o_id) ) ) write_lock(o_id)
+		else{}
+		recoverable_write(o_id)
+		if( can_release(o_id, op_index) ) unlock(o_id)
+	
+	}
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**/
+	def recoverable_read(o_id: Int) : Boolean =
+	{
+		//TODO implement
+		true
+	}
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**/
+	def recoverable_write(o_id: Int) : Boolean =
+	{
+		//TODO implement
+		true
+	}
+	
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	def holds_lock(o_id: Int) : Boolean =
+	{
+		//TODO iplement
+		true
+	}
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**/
+	def read_lock(o_id: Int)
+	{
+		//TODO implement
+	}
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**/
+	def write_lock(o_id: Int)
+	{
+		//TODO implement
+	}
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**/
+	def can_release(o_id: Int, op_index: Int) : Boolean =
+	{
+		//TODO implement
+		true
+	}
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**/
+	def unlock(o_id : Int)
+	{
+		//TODO implement
+	}
+}
+
+object TransactionTest extends App
+{
+	val numTrans = 5;
+	val numObjects = 5;
+	val maxOps = 10;
+	
+	val rand = scala.util.Random
+	
+	for( i <- 0 until numObjects ) new Queue[Int]() :: waitQueues
+	
+	var transactions = Array.ofDim[Transaction](numTrans) 
+
+	for ( i <- 0 until numTrans ) transactions(i) = new Transaction(i, makeSchedule(i,1+rand.nextInt(maxOps),1+rand.nextInt(numObjects)))
+	for ( i <- 0 until numTrans ) transactions(i).start()
+}

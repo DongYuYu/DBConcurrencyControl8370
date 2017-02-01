@@ -1,5 +1,7 @@
-[0m[[0minfo[0m] [0mRunning trans/Transaction.scala [0m
-[0m[[31merror[0m] [0mError: Could not find or load main class trans.Transaction.scala[0m
+[0m[[0minfo[0m] [0mRunning trans.Transaction [0m
+[0m[[31merror[0m] [0mError: Main method not found in class trans.Transaction, please define the main method as:[0m
+[0m[[31merror[0m] [0m   public static void main(String[] args)[0m
+[0m[[31merror[0m] [0mor a JavaFX application class must extend javafx.application.Application[0m
 java.lang.RuntimeException: Nonzero exit code returned from runner: 1
 	at scala.sys.package$.error(package.scala:27)
 	at sbt.BuildCommon$$anonfun$toError$1.apply(Defaults.scala:2128)
