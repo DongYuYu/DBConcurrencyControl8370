@@ -17,21 +17,13 @@
 [0m[[0minfo[0m] [0mCompiling 1 Scala source to /Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/target/scala-2.12/classes...[0m
 [0m[[0mdebug[0m] [0mGetting org.scala-sbt:compiler-interface:0.13.13:component from component compiler for Scala 2.12.1[0m
 [0m[[0mdebug[0m] [0mGetting org.scala-sbt:compiler-interface:0.13.13:component from component compiler for Scala 2.12.1[0m
-[0m[[0mdebug[0m] [0mRunning cached compiler 5c9bd945, interfacing (CompilerInterface) with Scala compiler version 2.12.1[0m
+[0m[[0mdebug[0m] [0mRunning cached compiler 5b1295de, interfacing (CompilerInterface) with Scala compiler version 2.12.1[0m
 [0m[[0mdebug[0m] [0mCalling Scala compiler with arguments  (CompilerInterface):[0m
 [0m[[0mdebug[0m] [0m	-bootclasspath[0m
 [0m[[0mdebug[0m] [0m	/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/lib/resources.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/lib/rt.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/lib/sunrsasign.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/lib/jsse.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/lib/jce.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/lib/charsets.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/lib/jfr.jar:/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk/Contents/Home/jre/classes:/Users/MacBot/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.12.1.jar[0m
 [0m[[0mdebug[0m] [0m	-classpath[0m
 [0m[[0mdebug[0m] [0m	/Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/target/scala-2.12/classes:/Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/lib/scalation.jar[0m
-[0m[[0mdebug[0m] [0mScala compilation took 6.552906168 s[0m
-[0m[[0mdebug[0m] [0m[naha] Invalidating /Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/src/main/scala/trans/VDB.scala...[0m
-[0m[[0mdebug[0m] [0m[naha] Invalidating (transitively) by inheritance from /Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/src/main/scala/trans/VDB.scala...[0m
-[0m[[0mdebug[0m] [0m[naha] Initial set of included nodes: Set(/Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/src/main/scala/trans/VDB.scala)[0m
-[0m[[0mdebug[0m] [0m[naha] Invalidated by transitive inheritance dependency: Set(/Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/src/main/scala/trans/VDB.scala)[0m
-[0m[[0mdebug[0m] [0m[naha] The /Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/src/main/scala/trans/VDB.scala source file has the following regular definitions changed:[0m
-[0m[[0mdebug[0m] [0m[naha] 	print_log.[0m
-[0m[[0mdebug[0m] [0m[naha] All member reference dependencies will be considered within this context.[0m
-[0m[[0mdebug[0m] [0m[naha] None of the modified names appears in /Users/MacBot/Projects/DBConcurrencyControl8370/Transactions/src/main/scala/trans/Transaction.scala. This dependency is not being considered for invalidation.[0m
+[0m[[0mdebug[0m] [0mScala compilation took 0.878039666 s[0m
 [0m[[0mdebug[0m] [0m[naha] New invalidations:[0m
 [0m[[0mdebug[0m] [0m[naha] 	Set()[0m
 [0m[[0mdebug[0m] [0m[naha] Initial set of included nodes: Set()[0m

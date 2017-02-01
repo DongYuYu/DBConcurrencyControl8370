@@ -34,12 +34,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 	 */
 	def read_lock(tid: Int, oid: Int): ReentrantReadWriteLock.ReadLock = 
 	{
-		var lock = table.get(oid).get					// Retrieve the lock associated with the object
-		if( lock == None ){						// in the lock table.
-		    lock = new ReentrantReadWriteLock(true)			// Create a new lock if there wasn't one associated
-		    table += (oid -> lock)					// with the object in the table.   	  
+		var rw_lock = table.get(oid).get					// Retrieve the lock associated with the object
+		if( rw_lock == None ){						// in the lock table.
+		    rw_lock = new ReentrantReadWriteLock(true)			// Create a new lock if there wasn't one associated
+		    table += (oid -> rw_lock)					// with the object in the table.   	  
 		}// if	     	     						
-       	        lock.readLock()							// Return the ReadLock for this RRWL
+       	        rw_lock.readLock()							// Return the ReadLock for this RRWL
 	}
 
 	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -77,7 +77,7 @@ object VDB
     private val COMMIT   = -2
     private val ROLLBACK = -3
 
-    private var last_commit = 0
+    private var last_commit = -1
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
@@ -155,6 +155,7 @@ object VDB
         if (DEBUG) println (s"commit ($tid)")
 
  	logBuf += ((tid, COMMIT, null, null))
+	println(s"logBuf.size: ${logBuf.size}")
 
 	if (DEBUG) {					
 	   for(i <- logBuf.indices ) println(s"logBuf @ $i: ${logBuf(i)}") //print out the logbuf
@@ -165,7 +166,7 @@ object VDB
 	
 	var raf = new RandomAccessFile(PDB.log_file,"rw")	
 
-	var read = 0
+	var read = -1
 	for( i <- start to finish){
 	     var bb  = ByteBuffer.allocate(264)			//get a new ByteBuffer
 	     var data = logBuf(i)				//grab the current record to flush
@@ -177,10 +178,29 @@ object VDB
 	     else 		 bb.put(("-"*128).getBytes())	 
 	     var ba = bb.array()
 	     raf.seek(raf.length())				//make sure to be appending
+     	     raf.write(ba)
 	     println("written")
 	}// while
 	last_commit=finish					//update the last_commit pointer
-	if( DEBUG ) print_log(raf)
+	//if( DEBUG ) print_log(raf)
+	raf.seek(0)						
+     	var buf = Array.ofDim[Byte](264)
+     	var count = 0;
+     	read = raf.read(buf)
+     	print(s"read: $read")
+     	while( read != -1 ){
+     	    println(s"count: $count")
+     	    var bb = ByteBuffer.allocate(264)
+
+	    bb.put(buf);
+
+	    bb.position(0)
+	    println(s"(${bb.getInt()},${bb.getInt()},"        +
+	       	       s"${bb.array.slice(8,135).toString()},"  +
+		       s"${bb.array.slice(136,263).toString()}")
+	    read = raf.read(buf)
+	    count+=1
+	}// while
 	
     } // commit
 
@@ -195,7 +215,9 @@ object VDB
      var buf = Array.ofDim[Byte](264)
      var count = 0;
      var read = raf.read(buf)
+     print(s"read: $read")
      while( read != -1 ){
+     	    println(s"count: $count")
      	    var bb = ByteBuffer.allocate(264)
 
 	    bb.put(buf);
@@ -205,7 +227,16 @@ object VDB
 	       	       s"${bb.array.slice(8,135).toString()},"  +
 		       s"${bb.array.slice(136,263).toString()}")
 	    read = raf.read(buf)
+	    count+=1
 	}// while
+	     	    var bb = ByteBuffer.allocate(264)
+
+	    bb.put(buf);
+
+	    bb.position(0)
+	    println(s"(${bb.getInt()},${bb.getInt()},"        +
+	       	       s"${bb.array.slice(8,135).toString()},"  +
+		       s"${bb.array.slice(136,263).toString()}")
      }
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -269,6 +300,7 @@ object VDB
 
 object PDB
 {
+	// TODO implement init_store
 	val log_file   = "log"
 	val store_file = "store"
 	try{
@@ -319,8 +351,7 @@ object VDBTest extends App
     println("logBuf size: " + VDB.logBuf.size)
     println ("\nPrint logBuf")
     for (i <- VDB.logBuf.indices) println(VDB.logBuf(i))
-
-    println( "committing" )
+    
     VDB.commit(2);
 
 } // VDBTest
