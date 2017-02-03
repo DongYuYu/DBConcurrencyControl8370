@@ -18,32 +18,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
  */
  object LockTable
  {
- /*
-	type LockRecord = Tuple3 [ReentrantReadWriteLock, Int, List[Int]]	// LockRecord type (Lock, LockStatus (read/write),
-	     		  	 			       			//	     	   List of locking Transactions) 
-	private val WRITE = 0				
-	private val READ  = 1
-*/
 
 	private val table = Map[Int, ReentrantReadWriteLock] ()			// Map used to access locks for each object
 		    	    	     			     			// (oid => lock)
-										
-	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	/** Method to retrieve a ReadLock for an object. Creates a lock if
-	 *  there is not a lock associated with this object in the lock table.
-	 *  @ param tid  The integer id for the transaction trying to lock the object
-	 *  @ param oid  The integer id for the object the transaction is trying to lock
-	 */
-	def read_lock(tid: Int, oid: Int): ReentrantReadWriteLock.ReadLock = 
-	{
-		var rw_lock = table.get(oid).get					// Retrieve the lock associated with the object
-		if( rw_lock == None ){						// in the lock table.
-		    rw_lock = new ReentrantReadWriteLock(true)			// Create a new lock if there wasn't one associated
-		    table += (oid -> rw_lock)					// with the object in the table.   	  
-		}// if	     	     						
-       	        rw_lock.readLock()							// Return the ReadLock for this RRWL
-	}
-
 	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/** Method to retrieve a WriteLock for this object. Creates a lock
 	 *  if there is not a lock associated with this object in the lock
@@ -51,17 +28,32 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 	 *  @ param tid  The integer id for the transaction trying to lock the object
 	 *  @ param oid  The integer id for the object the transaction is trying to lock
 	 */
-	def write_lock(tid: Int, oid: Int): ReentrantReadWriteLock.WriteLock = 
+	def lock(oid: Int): ReentrantReadWriteLock = 
 	{
-		var lock = table.get(oid).get					// Retrieve the RRWL associated with the object
+		var lock = table.get(oid)					// Retrieve the RRWL associated with the object
 		if( lock == None ){						// in the lock table
-		    lock = new ReentrantReadWriteLock(true)			// Crate a new lock if there wasn't one associated  
-		    table += (oid -> lock)					// with the object in the table
+		    table += (oid -> new ReentrantReadWriteLock(true))		// with the object in the table
+		    lock = table.get(oid)
 		}// if
-       	        lock.writeLock()						// Return the WriteLock for this RRWL
+       	        lock.get							// Return the WriteLock for this RRWL
+	} // lock
+
+	
+	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/** Method to remove unnecessary locks from the table. Check the waiters
+	 *  for the lock, if none remove from the table.
+	 *  @ param oid  The object identifier the lock is associated with.
+	 */
+	def checkLock(oid: Int) 
+	{
+		var lock = table(oid)
+		if( lock != None && !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
 	}
+
+	
 	
  }
+ 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `VDB` object represents the Volatile Database.
  */
@@ -145,6 +137,7 @@ object VDB
     {
         if (DEBUG) println (s"begin ($tid)")
         logBuf += ((tid, BEGIN, null, null))
+	print("begun\n")
     } // begin
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

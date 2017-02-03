@@ -230,3 +230,5 @@ run
 exit
 run
 exit
+sbt
+run
