@@ -5,6 +5,8 @@
 	     for i <- writeLocks.indices{
 	     	 LockTable.get(writeLocks(i)).unlock()
 	     }
+
+implement writeLock 2PL logic
 implement PDB.init_store
 */
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -64,8 +66,8 @@ class Transaction (sch: Schedule) extends Thread
     override def run ()
     {
     	for(i <- sch.indices){
-	      val op = sch(i)
-	      var tup = rw_set.get(op._3)
+	      val op = sch(i)				// TODO : change to a method fill_rw_set();
+	      var tup = rw_set(op._3)
 	      if( tup == None ) {
 	      	  var newTupe = (0,0)
 		  if( op._1 == r )
@@ -122,8 +124,11 @@ class Transaction (sch: Schedule) extends Thread
 	} // else
 	
 	rw_set(oid)=rw_set(oid).copy(_1 = rw_set(oid)._1-1)		// take a read of this object off of the rw_set
+
+	//TODO check if oid has any further reads or writes, take oid out of rw_set if not. 
+
 	numOps -= 1			  				// update your op counter
-	if(numOps == 0) contracting = true				// update your phase field
+	if(numOps == 0) releaseReadLocks() //contracting = true				// update your phase field
 	if(contracting) releaseReadLocks()				// release your read locks if you can
 	ret
     } // read
