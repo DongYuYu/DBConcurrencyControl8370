@@ -163,6 +163,7 @@ class Transaction (sch: Schedule) extends Thread
      */
     def write (oid: Int, value: VDB.Record)
     {
+
 	var lock = LockTable.lock(oid)
 	var primeLock = lock.writeLock()
 	if(primeLock.isHeldByCurrentThread) VDB.write(tid, oid, value)
@@ -172,7 +173,6 @@ class Transaction (sch: Schedule) extends Thread
 		VDB.write(tid, oid, value)
 	}
 	rwSet(oid)(WRITE) -= 1
-
 
     } // write
 
@@ -193,7 +193,10 @@ class Transaction (sch: Schedule) extends Thread
 	releaseWriteLocks()
         VDB.commit (tid)
         if (DEBUG) println (VDB.logBuf)
-	
+
+        releaseReadLocks()
+        releaseWriteLocks()
+
     } // commit
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
