@@ -54,42 +54,23 @@ class Transaction (sch: Schedule) extends Thread
 {
     private val DEBUG       = true						// debug flag
     private val tid         = nextCount ()        		    		// tarnsaction identifier
-    private var rw_set      = Map[Int, (Int, Int)]()	    			// the read write set
+    private var rwSet       = Map[Int, Array[Int]]()		    		// the read write set
     private var numOps      = 0	   	 		    			// [ oid, (num_reads,num_writes)]
     private var contracting = false						// keeps track of which 2PL phase we're in (contracting or expanding)
-    private var readLocks   = Set[ (Int, ReentrantReadWriteLock.ReadLock)]()	// set of read locks we haven't unlocked yet and the oid they apply to
-    private var writeLocks  = Set[ (Int, ReentrantReadWriteLock.WriteLock)]() 	// set of write locks we haven't unlocked yet and the oid they apply to
-    
+    private var readLocks   = Map [Int, ReentrantReadWriteLock.ReadLock ]()	// set of read locks we haven't unlocked yet and the oid they apply to
+    private var writeLocks  = Map [Int, ReentrantReadWriteLock.WriteLock]() 	// set of write locks we haven't unlocked yet and the oid they apply to
+    private val READ        = 0
+    private val WRITE       = 1
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Run this transaction by executing its operations.
      */
     override def run ()
     {
-    	for(i <- sch.indices){
-	      val op = sch(i)				// TODO : change to a method fill_rw_set();
-	      var tup = rw_set(op._3)
-	      if( tup == None ) {
-	      	  var newTupe = (0,0)
-		  if( op._1 == r )
-		      newTupe = (1,0)
-		  else
-			newTupe= (0,1)
-		  rw_set += (op._3 -> newTupe)
-	      } // if
-	      else{
-		if( op._1 == r ) rw_set(op._3) = tup.get.copy(_1 = tup.get._1+1)
-		else rw_set(op._3) = tup.get.copy(_2 = tup.get._2+1)
-	      } // else
-	      numOps += 1
-	}// for
-
-	print("beginning\n")
+    	fillReadWriteSet()
         begin ()
         for (i <- sch.indices) {
-	    println("for")
             val op = sch(i)
             println (sch(i))
-	    println("for")
             if (op._1 == r) read (op._3)
             else            write (op._3, VDB.str2record (op.toString))
         } // for
@@ -97,41 +78,62 @@ class Transaction (sch: Schedule) extends Thread
     } // run
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Fills the read/write set for this transaction. 
+     */
+    def fillReadWriteSet()
+    {
+	for(i <- sch.indices){
+	      val op = sch(i)
+	      if (rwSet contains op._3){
+	      	 if( op._1 == r ) rwSet(op._3)(READ) += 1		//increment the read value for this object in the readWriteSet
+		 else             rwSet(op._3)(WRITE) += 1		//increment the write value
+	      } // if
+	      else{
+		var tup = Array.fill(2)(0)				//add a new member to the read write set
+		if( op._1 == r ) tup(READ) = 1				//make it a read member
+		else             tup(WRITE) = 1				//make it a write member
+		
+		rwSet += (op._3 -> tup) 
+	      } // else
+	      numOps += 1
+	}// for
+    } // fillReadWriteSet
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'.
      *  @param oid  the object/record being read
      */
-
-    
     def read (oid: Int): VDB.Record =
     {
 	println("reading");
-	var ret  = Array.ofDim[Byte](128)
-	var lock = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
+	var ret   = Array.ofDim[Byte](128)
+	var lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
 	var prime_lock = lock.writeLock()				// get the writeLock associated with the rrwl
 	if( prime_lock.isHeldByCurrentThread() ){			// if you already hold the write lock, start reading
 	    ret = (VDB.read (tid,oid))._1
 	} // if
-	else if( (rw_set contains oid) && (rw_set(oid)._2>0) ){		// if you will need to write this item in the future, use the writeLock for read
+	else if( (rwSet contains oid) && (rwSet(oid)(1)>0) ){		// if you will need to write this item in the future, use the writeLock for read
 	     prime_lock.lock()	     					// try to lock the write lock
 	     ret = (VDB.read (tid,oid))._1
-	     writeLocks add (oid,prime_lock)
+	     writeLocks += (oid -> prime_lock)
 	} // else if
 	else{
 		var prime_lock2 = lock.readLock()			// switch to the read lock b/c you don't need to write in the future
 		prime_lock2.lock() 					// try to lock the read lock
 		ret = (VDB.read(tid,oid))._1
-		readLocks add (oid,prime_lock2)
+		readLocks += (oid -> prime_lock2)
 	} // else
 	
-	rw_set(oid)=rw_set(oid).copy(_1 = rw_set(oid)._1-1)		// take a read of this object off of the rw_set
+	rwSet(oid)(READ) -= 1						// take a read of this object off of the rw_set
 
-	//TODO check if oid has any further reads or writes, take oid out of rw_set if not. 
-
+	if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed 
+	    (rwSet(oid)(WRITE) == 0) ) rwSet -= oid
+	    
 	numOps -= 1			  				// update your op counter
-	if(numOps == 0) releaseReadLocks() //contracting = true				// update your phase field
-	if(contracting) releaseReadLocks()				// release your read locks if you can
+	if(numOps == 0) releaseReadLocks()				// release your read locks if you can
 	ret
     } // read
+    
 
     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Unlock any read locks this transaction may own.
@@ -139,7 +141,7 @@ class Transaction (sch: Schedule) extends Thread
      def releaseReadLocks()
      {
 	for( lock <- readLocks ){
-	     lock._2.unlock
+	     lock._2.unlock()
 	     LockTable.checkLock(lock._1)
 	}
      } // releaseReadLocks
@@ -151,7 +153,7 @@ class Transaction (sch: Schedule) extends Thread
      def releaseWriteLocks()
      {
 	for( lock <- writeLocks ){
-	     lock._2.unlock
+	     lock._2.unlock()
 	     LockTable.checkLock(lock._1)
 	}
      } // releaseWriteLocks
