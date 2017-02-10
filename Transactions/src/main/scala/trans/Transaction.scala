@@ -77,8 +77,8 @@ class Transaction (sch: Schedule) extends Thread
 		  rw_set += (op._3 -> newTupe)
 	      } // if
 	      else{
-		if( op._1 == r ) rw_set(op._3) = tup.get.copy(_1 = tup.get._1+1)
-		else rw_set(op._3) = tup.get.copy(_2 = tup.get._2+1)
+		if( op._1 == r ) rw_set(op._3) = tup.copy(_1 = tup._1+1)
+		else rw_set(op._3) = tup.copy(_2 = tup._2+1)
 	      } // else
 	      numOps += 1
 	}// for
@@ -163,7 +163,18 @@ class Transaction (sch: Schedule) extends Thread
      */
     def write (oid: Int, value: VDB.Record)
     {
-        VDB.write (tid, oid, value)
+        var lock = LockTable.lock(oid)
+        var primelock = lock.writeLock()
+        if (primelock.isHeldByCurrentThread)                //if the write lock is already held by current transactoin
+            VDB.write (tid, oid, value)
+        else {
+            primelock.lock()                                ///Try to lock if it't  not held yet (check if it issues writelock if someone has readlock on lock
+
+            writeLocks add(oid, primelock)
+            VDB.write(tid, oid, value)
+        }
+        rw_set(oid) = rw_set(oid).copy(_2=(rw_set(oid)_2)-1)       //housekeeping
+
     } // write
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -181,6 +192,8 @@ class Transaction (sch: Schedule) extends Thread
     {
         VDB.commit (tid)
         if (DEBUG) println (VDB.logBuf)
+        releaseReadLocks()
+        releaseWriteLocks()
     } // commit
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
