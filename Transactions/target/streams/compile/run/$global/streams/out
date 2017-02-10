@@ -1,114 +1,119 @@
 [0m[[0mdebug[0m] [0mjavaOptions: List()[0m
 [0m[[0minfo[0m] [0mRunning trans.TransactionTest [0m
-[0m[[0minfo[0m] [0mbeginning[0m
 [0m[[0minfo[0m] [0mbegin (1)[0m
-[0m[[0minfo[0m] [0mbegun[0m
-[0m[[0minfo[0m] [0mfor[0m
 [0m[[0minfo[0m] [0m(r,1,0)[0m
-[0m[[0minfo[0m] [0mfor[0m
 [0m[[0minfo[0m] [0mreading[0m
 [0m[[0minfo[0m] [0mread (1, 0)[0m
-[0m[[0minfo[0m] [0mfor[0m
 [0m[[0minfo[0m] [0m(r,1,1)[0m
-[0m[[0minfo[0m] [0mfor[0m
 [0m[[0minfo[0m] [0mreading[0m
 [0m[[0minfo[0m] [0mread (1, 1)[0m
-[0m[[0minfo[0m] [0mfor[0m
 [0m[[0minfo[0m] [0m(w,1,0)[0m
-[0m[[0minfo[0m] [0mfor[0m
-[0m[[0minfo[0m] [0mwrite (1, 0, [B@2bbf76dd)[0m
+[0m[[0minfo[0m] [0mwrite (1, 0, [B@76123c9d)[0m
 [0m[[0minfo[0m] [0mread (1, 0)[0m
 [0m[[0minfo[0m] [0mold logBuf.size: 1[0m
 [0m[[0minfo[0m] [0mnew logBuf.size: 2[0m
-[0m[[0minfo[0m] [0mfor[0m
 [0m[[0minfo[0m] [0m(w,1,1)[0m
-[0m[[0minfo[0m] [0mfor[0m
-[0m[[0minfo[0m] [0mwrite (1, 1, [B@47ebe9a0)[0m
+[0m[[0minfo[0m] [0mwrite (1, 1, [B@722ba264)[0m
 [0m[[0minfo[0m] [0mread (1, 1)[0m
 [0m[[0minfo[0m] [0mold logBuf.size: 2[0m
 [0m[[0minfo[0m] [0mnew logBuf.size: 3[0m
 [0m[[0minfo[0m] [0mcommit (1)[0m
-[0m[[0minfo[0m] [0mlogBuf.size: 4[0m
 [0m[[0minfo[0m] [0mlogBuf @ 0: (1,-1,null,null)[0m
-[0m[[0minfo[0m] [0mlogBuf @ 1: (1,0,[B@2902a16a,[B@2bbf76dd)[0m
-[0m[[0minfo[0m] [0mlogBuf @ 2: (1,1,[B@795b3309,[B@47ebe9a0)[0m
+[0m[[0minfo[0m] [0mlogBuf @ 1: (1,0,[B@7fbe5f2a,[B@76123c9d)[0m
+[0m[[0minfo[0m] [0mlogBuf @ 2: (1,1,[B@18af7294,[B@722ba264)[0m
 [0m[[0minfo[0m] [0mlogBuf @ 3: (1,-2,null,null)[0m
 [0m[[0minfo[0m] [0mwritten[0m
 [0m[[0minfo[0m] [0mwritten[0m
 [0m[[0minfo[0m] [0mwritten[0m
 [0m[[0minfo[0m] [0mwritten[0m
 [0m[[0minfo[0m] [0mread: 264count: 0[0m
-[0m[[0minfo[0m] [0m(2,-2,[B@316a78d,[B@28339889[0m
+[0m[[0minfo[0m] [0m(2,-2,[B@2f285305,[B@3656b63a[0m
 [0m[[0minfo[0m] [0mcount: 1[0m
-[0m[[0minfo[0m] [0m(2,40,[B@f0528ee,[B@6aa643ff[0m
+[0m[[0minfo[0m] [0m(2,40,[B@6007057e,[B@60174dec[0m
 [0m[[0minfo[0m] [0mcount: 2[0m
-[0m[[0minfo[0m] [0m(2,-2,[B@5cbabbe9,[B@68798727[0m
+[0m[[0minfo[0m] [0m(2,-2,[B@dca9a90,[B@eae0a75[0m
 [0m[[0minfo[0m] [0mcount: 3[0m
-[0m[[0minfo[0m] [0m(2,40,[B@4e1d809e,[B@167c9b19[0m
+[0m[[0minfo[0m] [0m(2,40,[B@56dad22b,[B@cf88d31[0m
 [0m[[0minfo[0m] [0mcount: 4[0m
-[0m[[0minfo[0m] [0m(2,-2,[B@1f100fcc,[B@3b74f3b6[0m
+[0m[[0minfo[0m] [0m(2,-2,[B@553f8824,[B@2bbccd54[0m
 [0m[[0minfo[0m] [0mcount: 5[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@194f9d36,[B@6b196955[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@2b771982,[B@632e88d8[0m
 [0m[[0minfo[0m] [0mcount: 6[0m
-[0m[[0minfo[0m] [0m(1,0,[B@74e87595,[B@689dd1fd[0m
+[0m[[0minfo[0m] [0m(1,0,[B@4a794231,[B@7e2e047[0m
 [0m[[0minfo[0m] [0mcount: 7[0m
-[0m[[0minfo[0m] [0m(1,1,[B@d5e47f5,[B@2d2dc4ca[0m
+[0m[[0minfo[0m] [0m(1,1,[B@14ca4230,[B@3356039[0m
 [0m[[0minfo[0m] [0mcount: 8[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@1a5e4827,[B@1c4a70a8[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@35dd2a4,[B@132dfa50[0m
 [0m[[0minfo[0m] [0mcount: 9[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@6354ed3b,[B@209c6e0f[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@55b0e1c7,[B@7dac77e0[0m
 [0m[[0minfo[0m] [0mcount: 10[0m
-[0m[[0minfo[0m] [0m(1,0,[B@48eb054b,[B@7ebf3ce[0m
+[0m[[0minfo[0m] [0m(1,0,[B@10094203,[B@6c8ac528[0m
 [0m[[0minfo[0m] [0mcount: 11[0m
-[0m[[0minfo[0m] [0m(1,1,[B@4392eb3d,[B@bd0956[0m
+[0m[[0minfo[0m] [0m(1,1,[B@3ee6afa7,[B@20ebdcec[0m
 [0m[[0minfo[0m] [0mcount: 12[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@106c9557,[B@48c16117[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@7aa88ba8,[B@4031b250[0m
 [0m[[0minfo[0m] [0mcount: 13[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@1c5eb031,[B@7441ed55[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@4b21a666,[B@35d31f52[0m
 [0m[[0minfo[0m] [0mcount: 14[0m
-[0m[[0minfo[0m] [0m(1,0,[B@f308a7,[B@43f91877[0m
+[0m[[0minfo[0m] [0m(1,0,[B@b98378b,[B@4676a79a[0m
 [0m[[0minfo[0m] [0mcount: 15[0m
-[0m[[0minfo[0m] [0m(1,1,[B@2a4fe701,[B@511f9c58[0m
+[0m[[0minfo[0m] [0m(1,1,[B@222ba4,[B@2d268d7d[0m
 [0m[[0minfo[0m] [0mcount: 16[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@493100ec,[B@4200931d[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@67c8c33d,[B@1471e229[0m
 [0m[[0minfo[0m] [0mcount: 17[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@17a203b3,[B@3a72b043[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@51f9408,[B@1c4bbcb3[0m
 [0m[[0minfo[0m] [0mcount: 18[0m
-[0m[[0minfo[0m] [0m(1,0,[B@7b85f181,[B@3d5b1d97[0m
+[0m[[0minfo[0m] [0m(1,0,[B@3d3b452c,[B@26c09808[0m
 [0m[[0minfo[0m] [0mcount: 19[0m
-[0m[[0minfo[0m] [0m(1,1,[B@3a633e14,[B@15bc71b3[0m
+[0m[[0minfo[0m] [0m(1,1,[B@5f86f70c,[B@1e69666b[0m
 [0m[[0minfo[0m] [0mcount: 20[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@41e1937c,[B@24b39972[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@791c42af,[B@5b3e855c[0m
 [0m[[0minfo[0m] [0mcount: 21[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@783906e,[B@71c458c4[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@33e837a0,[B@66675588[0m
 [0m[[0minfo[0m] [0mcount: 22[0m
-[0m[[0minfo[0m] [0m(1,0,[B@3c734ff3,[B@4b33906[0m
+[0m[[0minfo[0m] [0m(1,0,[B@7d757ad1,[B@524e1446[0m
 [0m[[0minfo[0m] [0mcount: 23[0m
-[0m[[0minfo[0m] [0m(1,1,[B@1f28c91e,[B@4cf9b047[0m
+[0m[[0minfo[0m] [0m(1,1,[B@20696c98,[B@7c7ea608[0m
 [0m[[0minfo[0m] [0mcount: 24[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@6a5372fc,[B@77350db9[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@2a8bf8a4,[B@8c53597[0m
 [0m[[0minfo[0m] [0mcount: 25[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@2e0c5a78,[B@2f76ac76[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@632385bb,[B@6ae42131[0m
 [0m[[0minfo[0m] [0mcount: 26[0m
-[0m[[0minfo[0m] [0m(1,0,[B@5e43fff6,[B@1c47942[0m
+[0m[[0minfo[0m] [0m(1,0,[B@1fdfaa11,[B@3e175df0[0m
 [0m[[0minfo[0m] [0mcount: 27[0m
-[0m[[0minfo[0m] [0m(1,1,[B@4d573c98,[B@57d83c58[0m
+[0m[[0minfo[0m] [0m(1,1,[B@416609d4,[B@a404560[0m
 [0m[[0minfo[0m] [0mcount: 28[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@16a5d51a,[B@3489b0e5[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@68adf91b,[B@6cd1c123[0m
 [0m[[0minfo[0m] [0mcount: 29[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@40cef910,[B@56e227ad[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@1d884dc4,[B@156b6050[0m
 [0m[[0minfo[0m] [0mcount: 30[0m
-[0m[[0minfo[0m] [0m(1,0,[B@6ed7356e,[B@17a0bec9[0m
+[0m[[0minfo[0m] [0m(1,0,[B@128936c7,[B@70b3356c[0m
 [0m[[0minfo[0m] [0mcount: 31[0m
-[0m[[0minfo[0m] [0m(1,1,[B@2011d354,[B@670947b4[0m
+[0m[[0minfo[0m] [0m(1,1,[B@2f0aa0d3,[B@61ad3c82[0m
 [0m[[0minfo[0m] [0mcount: 32[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@3022627e,[B@22e6d445[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@3ac9017e,[B@53b84b1e[0m
 [0m[[0minfo[0m] [0mcount: 33[0m
-[0m[[0minfo[0m] [0m(1,-1,[B@cc3283e,[B@215aeaf5[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@294e7582,[B@210f0505[0m
 [0m[[0minfo[0m] [0mcount: 34[0m
-[0m[[0minfo[0m] [0m(1,0,[B@2c84d32,[B@1698e5d2[0m
+[0m[[0minfo[0m] [0m(1,0,[B@53bf22ab,[B@42ce6379[0m
 [0m[[0minfo[0m] [0mcount: 35[0m
-[0m[[0minfo[0m] [0m(1,1,[B@38fade7,[B@7574e221[0m
+[0m[[0minfo[0m] [0m(1,1,[B@18f6ecc7,[B@4108f5f1[0m
 [0m[[0minfo[0m] [0mcount: 36[0m
-[0m[[0minfo[0m] [0m(1,-2,[B@35158060,[B@64f24565[0m
-[0m[[0minfo[0m] [0mArrayBuffer((1,-1,null,null), (1,0,[B@2902a16a,[B@2bbf76dd), (1,1,[B@795b3309,[B@47ebe9a0), (1,-2,null,null))[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@6b882d01,[B@5a6c5ea2[0m
+[0m[[0minfo[0m] [0mcount: 37[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@75d311fc,[B@7372c5ca[0m
+[0m[[0minfo[0m] [0mcount: 38[0m
+[0m[[0minfo[0m] [0m(1,0,[B@59b80e80,[B@6119d25b[0m
+[0m[[0minfo[0m] [0mcount: 39[0m
+[0m[[0minfo[0m] [0m(1,1,[B@ca87375,[B@6911abbf[0m
+[0m[[0minfo[0m] [0mcount: 40[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@70446413,[B@5f60fb4a[0m
+[0m[[0minfo[0m] [0mcount: 41[0m
+[0m[[0minfo[0m] [0m(1,-1,[B@109c1808,[B@743415f7[0m
+[0m[[0minfo[0m] [0mcount: 42[0m
+[0m[[0minfo[0m] [0m(1,0,[B@2783839e,[B@7f61868f[0m
+[0m[[0minfo[0m] [0mcount: 43[0m
+[0m[[0minfo[0m] [0m(1,1,[B@f4d9d33,[B@5b02ba80[0m
+[0m[[0minfo[0m] [0mcount: 44[0m
+[0m[[0minfo[0m] [0m(1,-2,[B@60265d0d,[B@1380ea78[0m
+[0m[[0minfo[0m] [0mArrayBuffer((1,-1,null,null), (1,0,[B@7fbe5f2a,[B@76123c9d), (1,1,[B@18af7294,[B@722ba264), (1,-2,null,null))[0m

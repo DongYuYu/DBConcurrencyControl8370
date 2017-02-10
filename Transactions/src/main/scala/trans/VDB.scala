@@ -71,7 +71,7 @@ object VDB
     private val COMMIT   = -2
     private val ROLLBACK = -3
 
-    private var last_commit = -1
+    private var lastCommit = -1
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
@@ -122,6 +122,7 @@ object VDB
     {
         if (DEBUG) println (s"write ($tid, $oid, $newVal)")
         val (oldVal, cpage) = read (tid, oid)
+	/////////////////////////////////////////// what if we didn't have the value in the cache? Is it handled in the read? I think so...
 	println("old logBuf.size: " + logBuf.size)
         logBuf += ((tid, oid, oldVal, newVal))
 	println("new logBuf.size: " + logBuf.size)
@@ -137,7 +138,7 @@ object VDB
     {
         if (DEBUG) println (s"begin ($tid)")
         logBuf += ((tid, BEGIN, null, null))
-	print("begun\n")
+
     } // begin
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -146,23 +147,27 @@ object VDB
      */
     def commit (tid: Int)
     {
-
-        if (DEBUG) println (s"commit ($tid)")
-
  	logBuf += ((tid, COMMIT, null, null))
-	println(s"logBuf.size: ${logBuf.size}")
+        if (DEBUG) {
+	   println (s"commit ($tid)")
+	   printLogBuf()
+	}
 
-	if (DEBUG) {					
-	   for(i <- logBuf.indices ) println(s"logBuf @ $i: ${logBuf(i)}") //print out the logbuf
-	}// if
-
-	var finish = logBuf.length - 1				//the most recent record to flush
-	var start  = last_commit + 1	       			//the least recent record to flush
+	flushLogBuf()			 				//flush the logBuf
 	
-	var raf = new RandomAccessFile(PDB.log_file,"rw")	
+	lastCommit = logBuf.length - 1					//update the lastCommit pointer
 
-	var read = -1
-	for( i <- start to finish){
+	if( DEBUG ) print_log()
+	
+    } // commit
+
+    //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Method to flush the logBuf contents into the log_file. 
+     */
+    def flushLogBuf()
+    {
+	var raf = new RandomAccessFile(PDB.log_file,"rw")	
+	for( i <- lastCommit+1 to logBuf.length-1){
 	     var bb  = ByteBuffer.allocate(264)			//get a new ByteBuffer
 	     var data = logBuf(i)				//grab the current record to flush
 	     bb.putInt(data._1)
@@ -176,36 +181,23 @@ object VDB
      	     raf.write(ba)
 	     println("written")
 	}// while
-	last_commit=finish					//update the last_commit pointer
-	//if( DEBUG ) print_log(raf)
-	raf.seek(0)						
-     	var buf = Array.ofDim[Byte](264)
-     	var count = 0;
-     	read = raf.read(buf)
-     	print(s"read: $read")
-     	while( read != -1 ){
-     	    println(s"count: $count")
-     	    var bb = ByteBuffer.allocate(264)
-
-	    bb.put(buf);
-
-	    bb.position(0)
-	    println(s"(${bb.getInt()},${bb.getInt()},"        +
-	       	       s"${bb.array.slice(8,135).toString()},"  +
-		       s"${bb.array.slice(136,263).toString()}")
-	    read = raf.read(buf)
-	    count+=1
-	}// while
-	
-    } // commit
-
+    }
+    
+    //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Print out the contents of the log buffer. 
+     */
+    def printLogBuf() {
+    	for(i <- logBuf.indices ) println(s"logBuf @ $i: ${logBuf(i)}")
+    }
+    
+    
     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Print the current contents of the log_file
      *  @param raf  The log_file
      */
-     def print_log(raf: RandomAccessFile) 
+     def print_log() 
      {
-     
+     var raf = new RandomAccessFile(PDB.log_file,"rw")
      raf.seek(0)						
      var buf = Array.ofDim[Byte](264)
      var count = 0;
@@ -224,15 +216,7 @@ object VDB
 	    read = raf.read(buf)
 	    count+=1
 	}// while
-	     	    var bb = ByteBuffer.allocate(264)
-
-	    bb.put(buf);
-
-	    bb.position(0)
-	    println(s"(${bb.getInt()},${bb.getInt()},"        +
-	       	       s"${bb.array.slice(8,135).toString()},"  +
-		       s"${bb.array.slice(136,263).toString()}")
-     }
+    }
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Rollback the transaction with id 'tid'.
