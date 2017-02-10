@@ -1,0 +1,245 @@
+//::::::::::::A::::::::::A::::::::::::::::::::::::A::::::::::::::::::::::::::::::::
+/** @author  John Miller
+ *  @version 1.2
+ *  @date    Tue Jan 24 14:31:26 EST 2017
+ *  @see     LICENSE (MIT style license file).
+ */
+
+package trans
+
+import scala.collection.mutable.{ArrayBuffer, Map}
+import java.io.{IOException, RandomAccessFile, ByteArrayOutputStream, ObjectOutputStream,
+       			     ByteArrayInputStream, ObjectInputStream, FileOutputStream,
+			     BufferedInputStream, FileNotFoundException, FileInputStream}
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+/** The `VDB` object represents the Volatile Database.
+ */
+object VDB
+{
+    type Record = Array [Byte]                           // record type
+    type LogRec = Tuple4 [Int, Int, Record, Record]      // log record type (tid, oid, v_old, v_new)
+
+    private val DEBUG         = true                     // debug flag
+    private val pages         = 5                        // number of pages in cache
+    private val recs_per_page = 32                       // number of record per page
+    private val record_size   = 128                      // size of record in bytes
+
+    private val BEGIN    = -1
+    private val COMMIT   = -2
+    private val ROLLBACK = -3
+
+    private var last_commit = 0
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** The `Page` case class 
+     */
+    case class Page ()
+    {
+         val p = Array.ofDim [Record] (recs_per_page)
+         override def toString = s"Page( + ${p.deep} + )\n" 
+    } // page class
+
+            val cache  = Array.ofDim [Page] (pages)      // database cache
+            val logBuf = ArrayBuffer [LogRec] ()         // log buffer
+    private val map    = Map [Int, Int] ()               // map for finding pages in cache
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Initialize the cache.
+     */
+    def initCache ()
+    {
+        for (i <- 0 until pages) {
+            val pg = Page ()
+            for (j <- 0 until recs_per_page) pg.p(j) = genRecord (i, j)
+            cache(i) = pg
+            map += i -> i
+        } // for
+    } // initCache
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Read the record with the given 'oid' from the database.
+     *  @param tid  the transaction performing the write operation
+     *  @param oid  the object/record being written
+     */
+    def read (tid: Int, oid: Int): (Record, Int) =
+    {
+        if (DEBUG) println (s"read ($tid, $oid)")
+        val cpi = map(oid / recs_per_page)         // the cache page index
+	///////////////////////////////////////////// TODO: Consider the cpi = NULL, i.e. - need to do a disk read...
+        val pg = cache(cpi)                        // page in cache
+        (pg.p(oid % recs_per_page), cpi)           // record, location in cache
+    } // read
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Write the 'newVal' record to the database.
+     *  @param tid  the transaction performing the write operation
+     *  @param oid  the object/record being written
+     */
+    def write (tid: Int, oid: Int, newVal: Record)
+    {
+        if (DEBUG) println (s"write ($tid, $oid, $newVal)")
+        val (oldVal, cpage) = read (tid, oid)
+	println("old logBuf.size: " + logBuf.size)
+        logBuf += ((tid, oid, oldVal, newVal))
+	println("new logBuf.size: " + logBuf.size)
+        val pg = cache(map(oid / recs_per_page))		//Note: data value should be cached by read 
+        pg.p(oid % recs_per_page) = newVal
+    } // write
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Begin the transaction with id 'tid'.
+     *  @param tid  the transaction id
+     */
+    def begin (tid: Int)
+    {
+        if (DEBUG) println (s"begin ($tid)")
+        logBuf += ((tid, BEGIN, null, null))
+    } // begin
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Commit the transaction with id 'tid'.
+     *  @param tid  the transaction id
+     */
+    def commit (tid: Int)
+    {
+        if (DEBUG) println (s"commit ($tid)")
+	println("in commit old logBuf size: " + logBuf.size) 
+ 	logBuf += ((tid, COMMIT, null, null))
+	println("in commit new logBuf size: " + logBuf.size)
+	for(i <- logBuf.indices ) println("logBuf @ " + i + ": " + logBuf(i))
+	var last_log = logBuf.length - 1
+       	// I M P L E M E N T
+	var i = last_commit
+	println("last_commit: " + last_commit)
+	println("last_log: " + last_log)
+	try {
+	    while(i <= last_log){
+	    	    var data = logBuf(i)
+	    	    val oos = new ObjectOutputStream(new FileOutputStream(PDB.log_file,true))
+		    println("writing")
+		    oos.writeObject(data)
+		    println("written")
+		    i+=1
+		    oos.close()
+	    }// while
+	    last_commit=i
+	    //fos.close()
+	    //var fis = new FileInputStream(PDB.log_file)
+	    //fis.getChannel().position(0);
+	    //println("fis.getChannel().position() 1: " + fis.getChannel().position())
+	    //val ois = new ObjectInputStream(new BufferedInputStream(fis))
+    	    //fis.getChannel().position(0);
+	    /*for(i <- 0 until logBuf.length ){
+	    	println("pringing logBuf("+i+")")
+		var tup = ois.readObject.asInstanceOf[LogRec]
+		println(tup)
+	    }
+	    ois.close()
+	    */
+	    //println("fis.getChannel().position() 2: " + fis.getChannel().position())
+	    //println("fis.getChannel().size(): " + fis.getChannel().size() )
+	    for( i <- 0 until last_commit ){
+	    	   var ois = new ObjectInputStream(new FileInputStream(PDB.log_file))
+		   var tup = ois.readObject.asInstanceOf[LogRec]
+		   println(tup)
+		   ois.close()
+	    }// while
+	    //var raf = new RandomAccessFile(PDB.log_file,"r")
+	    //ois.close()
+	}// try
+	catch{
+	       case ioe: IOException => println("I/O Exception in commit: " + ioe)
+	       case e  : Exception   => println("Exception in commit: " + e)
+	}// catch
+	print("committed")
+	
+    } // commit
+
+    //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Serialize logBuf entries into byte arrays
+     *  @ param data  the logBuf entry to serialize
+     */
+
+    
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Rollback the transaction with id 'tid'.
+     *  @param tid  the transaction id
+     */
+    def rollback (tid: Int)
+    {
+        if (DEBUG) println (s"rollback ($tid)")
+        logBuf += ((tid, ROLLBACK, null, null))
+	
+        // I M P L E M E N T
+    } // rollback
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Generate the ith record.
+     *  @param i  the page number
+     *  @param j  the record number within the page
+     */
+    def genRecord (i: Int, j: Int): Record = str2record (s"Page $i Record $j ")
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Convert a string to a record.
+     *  @param str  the string to convert 
+     */
+    def str2record (str: String): Record = (str + "-" * (record_size - str.size)).getBytes
+
+} // VDB
+
+object PDB
+{
+	val log_file   = "log"
+	val store_file = "store"
+	try{
+		val store = new RandomAccessFile(store_file,"rw")
+		val log = new RandomAccessFile(log_file,"rw")
+	}
+	catch{
+		case iae  : IllegalArgumentException => println("IllegalArgumentException: " + iae)
+		case fnfe : FileNotFoundException    => println("FileNotFOundException in PDB: " + fnfe)
+		case se   : SecurityException        => println("SecurityException: " + se)
+	}
+	def recover 
+	{
+	}
+}
+
+//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+/** The `VDBTest` object is used to test the `VDB` object.
+ *  > run-main trans.VDBTest
+ */
+object VDBTest extends App
+{
+
+    VDB.initCache ()
+    println ("\nPrint cache")
+    for (pg <- VDB.cache; rec <- pg.p) println (new String (rec))   // as text
+//  for (pg <- VDB.cache; rec <- pg.p) println (rec.deep)           // as byte array
+//  for (pg <- VDB.cache; rec <- pg.p) println (rec.size)           // number of bytes
+
+    println ("\nTest reads and writes:")
+    println ("reading1 read (2, 40)")
+    println (new String (VDB.read (2, 40)._1))
+    val newVal = VDB.str2record ("new value for record 40 ")
+    println (s"write (2, 40, ${new String (newVal)})")
+    VDB.write (2, 40, newVal)
+    println ("reading2 read (2, 40)")
+    println (new String (VDB.read (2, 40)._1))
+    
+    println ("\nPrint cache")
+    for (pg <- VDB.cache; rec <- pg.p) println (new String (rec))   // as text
+
+
+    println("logBuf size: " + VDB.logBuf.size)
+    println ("\nPrint logBuf")
+    for (i <- VDB.logBuf.indices) println(VDB.logBuf(i))
+
+    println( "committing" )
+    VDB.commit(2);
+
+} // VDBTest
+
