@@ -1,3 +1,10 @@
+/*
+	TODO: Implement disk reads
+	      Restart after roll back
+	      Initialize the PDB
+	      
+*/
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** @author  John Miller
  *  @version 1.2
@@ -63,6 +70,7 @@ object VDB
     type LogRec = Tuple4 [Int, Int, Record, Record]      // log record type (tid, oid, v_old, v_new)
 
     private val DEBUG         = true                     // debug flag
+    private val ANALYZE       = true
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
@@ -107,10 +115,19 @@ object VDB
     def read (tid: Int, oid: Int): (Record, Int) =
     {
         if (DEBUG) println (s"read ($tid, $oid)")
-        val cpi = map(oid / recs_per_page)         // the cache page index
-	///////////////////////////////////////////// TODO: Consider the cpi = NULL, i.e. - need to do a disk read...
-        val pg = cache(cpi)                        // page in cache
-        (pg.p(oid % recs_per_page), cpi)           // record, location in cache
+	if (ANALYZE) logBuf += ((tid, oid, null, null))
+	val pageNum: Int = oid/recs_per_page
+        if(map contains (pageNum){
+		val cpi = map(oid / recs_per_page)         // the cache page index
+		val pg = cache(cpi)                        // page in cache
+	        (pg.p(oid % recs_per_page), cpi)           // record, location in cache
+	} // if
+	else
+	{
+		///////////////////////////////////////////// TODO: Consider the cpi = NULL, i.e. - need to do a disk read...
+	} // else
+	
+        
     } // read
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -121,13 +138,17 @@ object VDB
     def write (tid: Int, oid: Int, newVal: Record)
     {
         if (DEBUG) println (s"write ($tid, $oid, $newVal)")
-        val (oldVal, cpage) = read (tid, oid)
-	/////////////////////////////////////////// what if we didn't have the value in the cache? Is it handled in the read? I think so...
-	println("old logBuf.size: " + logBuf.size)
-        logBuf += ((tid, oid, oldVal, newVal))
-	println("new logBuf.size: " + logBuf.size)
-        val pg = cache(map(oid / recs_per_page))		//Note: data value should be cached by read 
-        pg.p(oid % recs_per_page) = newVal
+	if (newVal == null) println(s"Cannot write null values to the database.")
+	else{
+		val (oldVal, cpage) = read (tid, oid)
+		/////////////////////////////////////////// what if we didn't have the value in the cache? Is it handled in the read? I think so...
+		println("old logBuf.size: " + logBuf.size)
+	        logBuf += ((tid, oid, oldVal, newVal))
+		println("new logBuf.size: " + logBuf.size)
+	        val pg = cache(map(oid / recs_per_page))		//Note: data value should be cached by read 
+	        pg.p(oid % recs_per_page) = newVal
+	}
+        
     } // write
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
