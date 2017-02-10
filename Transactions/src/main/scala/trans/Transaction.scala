@@ -125,12 +125,10 @@ class Transaction (sch: Schedule) extends Thread
 	} // else
 	
 	rwSet(oid)(READ) -= 1						// take a read of this object off of the rw_set
-
+ 
 	if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed 
 	    (rwSet(oid)(WRITE) == 0) ) rwSet -= oid
-	    
-	numOps -= 1			  				// update your op counter
-	if(numOps == 0) releaseReadLocks()				// release your read locks if you can
+	   
 	ret
     } // read
     
@@ -141,8 +139,8 @@ class Transaction (sch: Schedule) extends Thread
      def releaseReadLocks()
      {
 	for( lock <- readLocks ){
-	     lock._2.unlock()
-	     LockTable.checkLock(lock._1)
+	     lock._2.unlock()						//unlock the lock 
+	     LockTable.checkLock(lock._1)				//remove the lock from the lock table if necessary
 	}
      } // releaseReadLocks
 
@@ -153,8 +151,8 @@ class Transaction (sch: Schedule) extends Thread
      def releaseWriteLocks()
      {
 	for( lock <- writeLocks ){
-	     lock._2.unlock()
-	     LockTable.checkLock(lock._1)
+	     lock._2.unlock()						//unlock the lock
+	     LockTable.checkLock(lock._1)				//remove the lock from the lock table if necessary
 	}
      } // releaseWriteLocks
 
@@ -165,7 +163,17 @@ class Transaction (sch: Schedule) extends Thread
      */
     def write (oid: Int, value: VDB.Record)
     {
-        VDB.write (tid, oid, value)
+	var lock = LockTable.lock(oid)
+	var primeLock = lock.writeLock()
+	if(primeLock.isHeldByCurrentThread) VDB.write(tid, oid, value)
+	else{
+		primeLock.lock()
+		writeLocks += (oid -> primeLock)
+		VDB.write(tid, oid, value)
+	}
+	rwSet(oid)(WRITE) -= 1
+
+
     } // write
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -181,8 +189,11 @@ class Transaction (sch: Schedule) extends Thread
      */
     def commit ()
     {
+	releaseReadLocks()
+	releaseWriteLocks()
         VDB.commit (tid)
         if (DEBUG) println (VDB.logBuf)
+	
     } // commit
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -205,7 +216,7 @@ object TransactionTest extends App
     val t1 = new Transaction (new Schedule (List ( (r, 0, 0), (r, 0, 1), (w, 0, 0), (w, 0, 1) )))
     val t2 = new Transaction (new Schedule (List ( (r, 1, 0), (r, 1, 1), (w, 1, 0), (w, 1, 1) )))
     VDB.initCache()
-//    t1.start ()
+    t1.start ()
     t2.start ()
 
 } // TransactionTest object
