@@ -1,7 +1,7 @@
 /*
-	TODO: Implement disk reads
+	TODO:
 	      Restart after roll back
-	      Initialize the PDB
+
 	      
 */
 
@@ -17,6 +17,7 @@
 package trans
 
 import scala.collection.mutable.{ArrayBuffer, Map}
+
 import java.io.{IOException, RandomAccessFile, FileNotFoundException}
 import java.nio.ByteBuffer
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -35,14 +36,18 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 	 *  @ param tid  The integer id for the transaction trying to lock the object
 	 *  @ param oid  The integer id for the object the transaction is trying to lock
 	 */
+
 	def lock(oid: Int): ReentrantReadWriteLock = 
 	{
-		var lock = table.get(oid)					// Retrieve the RRWL associated with the object
-		if( lock == None ){						// in the lock table
-		    table += (oid -> new ReentrantReadWriteLock(true))		// with the object in the table
-		    lock = table.get(oid)
-		}// if
-       	        lock.get							// Return the WriteLock for this RRWL
+		this.synchronized{
+			var lock = table.get(oid)					// Retrieve the RRWL associated with the object
+			if( lock == None ){						// in the lock table
+				table += (oid -> new ReentrantReadWriteLock(true))		// with the object in the table
+				lock = table.get(oid)
+			}// if
+			lock.get							// Return the WriteLock for this RRWL
+		}
+
 	} // lock
 
 	
@@ -53,8 +58,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 	 */
 	def checkLock(oid: Int) 
 	{
-		var lock = table(oid)
-		if( lock != None && !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
+		this.synchronized {
+			var lock = table(oid)
+			if( lock != None && !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
+		}
+
 	}
 
 	
@@ -74,6 +82,7 @@ object VDB
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
+	var tsTable = Array.ofDim[Int](pages*recs_per_page, 2)  //create a Timestamp Table record the (rts, ws) of oid
 
     private val BEGIN    = -1
     private val COMMIT   = -2
@@ -92,7 +101,7 @@ object VDB
 
             val cache  = Array.ofDim [Page] (pages)      // database cache
             val logBuf = ArrayBuffer [LogRec] ()         // log buffer
-    private val map    = Map [Int, Int] ()               // map for finding pages in cache
+    private val map    = Map [Int, Int] ()               // map for finding pages in cache (pageNumber -> cpi)
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Initialize the cache.
@@ -115,21 +124,57 @@ object VDB
     def read (tid: Int, oid: Int): (Record, Int) =
     {
         if (DEBUG) println (s"read ($tid, $oid)")
-	if (ANALYZE) logBuf += ((tid, oid, null, null))
-	val pageNum: Int = oid/recs_per_page
-        if(map contains (pageNum){
-		val cpi = map(oid / recs_per_page)         // the cache page index
-		val pg = cache(cpi)                        // page in cache
-	        (pg.p(oid % recs_per_page), cpi)           // record, location in cache
-	} // if
-	else
-	{
-		///////////////////////////////////////////// TODO: Consider the cpi = NULL, i.e. - need to do a disk read...
-	} // else
-	
-        
-    } // read
+		if (ANALYZE) logBuf += ((tid, oid, null, null))
+		val pageNum = oid/recs_per_page
+		var cpi = 0
+		var pg = new Page()
+		var rec: Record = null
+		if(map contains (pageNum)){
+			cpi = map(pageNum)         // the cache page index
+			pg = cache(cpi)                        // page in cache
+			rec = pg.p(oid % recs_per_page)			//record location in cache page
+			return(rec,cpi)
+		} // if
+		else
+		{
+			return cachePull(oid)
+		} // else
+		(rec, cpi)
+	} // read
 
+	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**  A method to pull a page from the PDB into the cache
+	  * @param pageNumber  the number of the page in the PDB we wish to pull into the cache
+	  *  @return (record associated with oid, cachePage to fill with PDB page with record for oid)
+	  */
+	def cachePull(oid : Int) : (Record, Int) =
+	{
+		val newPageNumber = oid/recs_per_page
+		val newPage = PDB.fetchPage(newPageNumber)
+		val victim = victimize()
+		val (victimPageNum, cpi) = victim
+		if (victimPageNum>=0) map -= victimPageNum
+		map += (newPageNumber -> cpi )
+		cache(cpi)=newPage
+		(newPage.p(oid % recs_per_page),cpi)			//record location in cache page)
+	}
+
+	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/** A method to chose a cache page victim.
+ 	  */
+
+	def victimize() : (Int, Int) =
+	{
+		if (map.nonEmpty){
+			val elem = map.last
+			PDB.write(elem._1,cache(elem._2))             //TODO implement PDB.write(page)  method
+			elem
+		}
+		else{
+			(-1,0)
+		}
+
+	}
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Write the 'newVal' record to the database.
      *  @param tid  the transaction performing the write operation
@@ -185,24 +230,24 @@ object VDB
     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Method to flush the logBuf contents into the log_file. 
      */
-    def flushLogBuf()
-    {
-	var raf = new RandomAccessFile(PDB.log_file,"rw")	
-	for( i <- lastCommit+1 to logBuf.length-1){
-	     var bb  = ByteBuffer.allocate(264)			//get a new ByteBuffer
-	     var data = logBuf(i)				//grab the current record to flush
-	     bb.putInt(data._1)
-	     bb.putInt(data._2)	       
-	     if(data._3!=null) bb.put(data._3	)		//can't put(null) values
-	     else 		 bb.put(("-"*128).getBytes())
-	     if(data._4!=null) bb.put(data._4)			//again, null
-	     else 		 bb.put(("-"*128).getBytes())	 
-	     var ba = bb.array()
-	     raf.seek(raf.length())				//make sure to be appending
-     	     raf.write(ba)
-	     println("written")
-	}// while
-    }
+    def flushLogBuf() {
+		var raf = new RandomAccessFile(PDB.log_file, "rw")
+		for (i <- lastCommit + 1 to logBuf.length - 1) {
+			var bb = ByteBuffer.allocate(264)
+			//get a new ByteBuffer
+			var data = logBuf(i)                //grab the current record to flush
+			bb.putInt(data._1)
+			bb.putInt(data._2)
+			if (data._3 != null) bb.put(data._3)        //can't put(null) values
+			else bb.put(("-" * 128).getBytes())
+			if (data._4 != null) bb.put(data._4)            //again, null
+			else bb.put(("-" * 128).getBytes())
+			var ba = bb.array()
+			raf.seek(raf.length())                //make sure to be appending
+			raf.write(ba)
+			println("FlushlogBuff")
+		} // for
+	} // flushLogBuf()
     
     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Print out the contents of the log buffer. 
@@ -262,7 +307,7 @@ object VDB
 		    	else{
 /*				val memPage = PDB.fetchPage(page)
 				cache_page = victimizeCache(memPage);
-*/ //TODO: Implement
+*/ //TODO: Implement Restart after Roll Back
 			}// else
 		    }// if
 		    else rolling = false
@@ -273,16 +318,7 @@ object VDB
     } // rollback
 
     def mydefault0 = -1
-    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /** Replace a cache page with this page passed as a parameter.
-     *  @param memPage  the page to replace the victim page 
-     *
-     */
 
-    def victimizeCache(memPage: Page): Int =
-    {
-	0
-    }
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Generate the (i*32+j)th record.
      *  @param i  the page number
@@ -300,9 +336,14 @@ object VDB
 
 object PDB
 {
-	// TODO implement init_store
+
+
 	val log_file   = "log"
 	val store_file = "store"
+	private val pages = 15
+	private val recs_per_page = 32
+	private val record_size = 128
+
 	try{
 		val store = new RandomAccessFile(store_file,"rw")
 		val log = new RandomAccessFile(log_file,"rw")
@@ -312,12 +353,76 @@ object PDB
 		case fnfe : FileNotFoundException    => println("FileNotFOundException in PDB: " + fnfe)
 		case se   : SecurityException        => println("SecurityException: " + se)
 	}
-	def recover 
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/** The `Page` case class
+	  */
+	case class Page ()
+	{
+		val p = Array.ofDim [VDB.Record] (recs_per_page)
+		override def toString = s"Page( + ${p.deep} + )\n"
+	} // page class
+	def write (pageNum:Int, page: VDB.Page) ={
+		var store = new RandomAccessFile(PDB.store_file,"rw")
+		store.seek(pageNum*recs_per_page*record_size)
+		var p = page.p
+		for (i <- p.indices) {                //make sure to be appending
+			store.write(p(i))
+		} // for
+
+	}
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/** Initialize the store
+	  */
+	def initStore() ={
+		val store = new RandomAccessFile(store_file,"rw")
+		for (i <- 0 until pages) {
+			val pg = Page()
+			for (j <- 0 until recs_per_page) pg.p(j) = genRecord(i, j)
+			store.write(toByteArray(pg))
+		} // for
+
+	}
+	def toByteArray (page: Page): Array[Byte]={
+		page.p.flatMap(_.map((b:Byte)=>b))
+	}
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/** Generate the (i*32+j)th record.
+	  *  @param i  the page number
+	  *  @param j  the record number within the page
+	  */
+	def genRecord (i: Int, j: Int): VDB.Record = str2record (s"Page $i Record $j ")
+
+	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/** Convert a string to a record.
+	  *  @param str  the string to convert
+	  */
+	def str2record (str: String): VDB.Record = (str + "-" * (record_size - str.size)).getBytes
+
+
+
+	def recover
 	{
 	}
+//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	/**  A method to read a page from the PDB and return the content of the page
+	  * @param page  the number of the page in the PDB we wish to pull into the cache
+	  *  @return VDB.Page the content of the page in the PDB
+	  */
 	def fetchPage(page: Int): VDB.Page =
 	{
+		val store = new RandomAccessFile(PDB.store_file,"rw")
+		var buf = Array.ofDim[Byte](record_size)
+		store.seek(page * recs_per_page * record_size)
 		val pg = VDB.Page()
+		var p = pg.p
+		for(i <- p.indices){
+			var bb = ByteBuffer.allocate(record_size)
+			store.read(buf)
+			bb.put(buf)
+			bb.get(p(i))
+		} // for
 		pg
 	}
 }
@@ -328,7 +433,7 @@ object PDB
  */
 object VDBTest extends App
 {
-
+	PDB.initStore()
     VDB.initCache ()
     println ("\nPrint cache")
     for (pg <- VDB.cache; rec <- pg.p) println (new String (rec))   // as text
