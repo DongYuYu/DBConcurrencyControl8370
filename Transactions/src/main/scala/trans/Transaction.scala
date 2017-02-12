@@ -1,12 +1,4 @@
-/*TODO
-
-	  4. release all write locks at the commit phase.
-	     writeLocks = ArrayList[oid: Int]
-	     for i <- writeLocks.indices{
-	     	 LockTable.get(writeLocks(i)).unlock()
-	     }
-
-implement writeLock 2PL logic
+/*A
 implement PDB.init_store
 */
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -107,7 +99,10 @@ class Transaction (sch: Schedule) extends Thread
     {
 	println("reading");
 	var ret   = Array.ofDim[Byte](128)
-	var lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
+	LockTable.synchornized{
+		var lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
+	}
+	
 	var prime_lock = lock.writeLock()				// get the writeLock associated with the rrwl
 	if( prime_lock.isHeldByCurrentThread() ){			// if you already hold the write lock, start reading
 	    ret = (VDB.read (tid,oid))._1
@@ -139,12 +134,16 @@ class Transaction (sch: Schedule) extends Thread
      def releaseReadLocks()
      {
 	for( lock <- readLocks ){
-	     lock._2.unlock()						//unlock the lock 
+	     lock._2.unlock()						//unlock the lock
+	     
 	     LockTable.checkLock(lock._1)				//remove the lock from the lock table if necessary
 	}
      } // releaseReadLocks
 
 
+     this.synchronized{
+	
+     }
     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Unlock any write locks this transaction may own.
      */
