@@ -1,4 +1,4 @@
-/*
+/*AA
 
 	TODO: Implement roll back
 	      Implement csr testing
@@ -17,10 +17,12 @@
 package trans
 
 import scala.collection.mutable.{ArrayBuffer, Map}
-
+import scala.util.control.Breaks._
 import java.io.{IOException, RandomAccessFile, FileNotFoundException}
 import java.nio.ByteBuffer
 import java.util.concurrent.locks.ReentrantReadWriteLock
+
+import Operation._
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The 'LockTable' object represents the lock table for the VDB
  */
@@ -78,11 +80,12 @@ object VDB
     type LogRec = Tuple4 [Int, Int, Record, Record]      // log record type (tid, oid, v_old, v_new)
 
     private val DEBUG         = true                     // debug flag
-    private val ANALYZE       = true
+    private val CSR_TESTING   = true 
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
-
+    private val log_rec_size  = 264			 // size of a log record
+    
     var tsTable = Array.ofDim[Int](pages*recs_per_page, 2)  //create a Timestamp Table record the (rts, ws) of oid
     private val BEGIN    = -1
     private val COMMIT   = -2
@@ -99,10 +102,10 @@ object VDB
          override def toString = s"Page( + ${p.deep} + )\n" 
     } // page class
 
-            val cache  = Array.ofDim [Page] (pages)      // database cache
-            val logBuf = ArrayBuffer [LogRec] ()         // log buffer
-	    private val map    = Map [Int, Int] ()               // map for finding pages in cache (pageNumber -> cpi)
-
+                    val cache		 = Array.ofDim [Page]     (pages)	// database cache
+                    val logBuf 		 = ArrayBuffer [LogRec]   ()            // log buffer
+	    private val map    		 = Map         [Int, Int] ()            // map for finding pages in cache (pageNumber -> cpi)
+	    	    val SCHEDULE_TRACKER = ArrayBuffer [Op]       ()
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Initialize the cache.
      */
@@ -122,9 +125,13 @@ object VDB
      *  @param oid  the object/record being written
      */
     def read (tid: Int, oid: Int): (Record, Int) =
-    {
-        if (DEBUG) println (s"read ($tid, $oid)")
-		if (ANALYZE) logBuf += ((tid, oid, null, null))
+    	{
+		if (DEBUG) println (s"read ($tid, $oid)")
+		val op = (r,tid,oid)
+		if (CSR_TESTING) {
+		   SCHEDULE_TRACKER += op
+		   println(s"SCHEDULE_TRACKER from read method: ${SCHEDULE_TRACKER}")
+		}
 		val pageNum = oid/recs_per_page
 		var cpi = 0
 		var pg = new Page()
@@ -174,7 +181,7 @@ object VDB
 			var free = 0
 			if( map.keys.size > 0 ){
 			    breakable{	
-			    	for( i < cache.indices ){
+			    	for( i <- cache.indices ){
 				     if(cache(i) == None ) {
 				     		 free = i
 						 break
@@ -194,6 +201,12 @@ object VDB
     def write (tid: Int, oid: Int, newVal: Record)
     {
         if (DEBUG) println (s"write ($tid, $oid, $newVal)")
+	val op = (w,tid,oid)
+	if (CSR_TESTING) {
+	   SCHEDULE_TRACKER += op
+	   println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
+	}
+	
 	if (newVal == null) println(s"Cannot write null values to the database.")
 	else{
 		val (oldVal, cpi) = read (tid, oid)			//get the old value and it's cpi from read
@@ -207,7 +220,7 @@ object VDB
 		if(DEBUG) println("new logBuf.size: " + logBuf.size)
 		
 	        val pg		= cache(map(pageNumber))	 	//Note: data value should be cached by read 
-	        pg.p(recOffSet) = newVal				//change the old value in the page to the new value
+	        pg.p(recOffset) = newVal				//change the old value in the page to the new value
 	}
         
     } // write
@@ -449,7 +462,7 @@ object PDB
  */
 object VDBTest extends App
 {
-	PDB.initStore()
+    PDB.initStore()
     VDB.initCache ()
     println ("\nPrint cache")
     for (pg <- VDB.cache; rec <- pg.p) println (new String (rec))   // as text
@@ -477,3 +490,21 @@ object VDBTest extends App
 
 } // VDBTest
 
+object VDBTest2 extends App
+{
+	val OPS_PER_TRANSACTION  = 15
+    	val TOTAL_TRANSACTIONS   = 10
+    	val TOTAL_OBJECTS	 = 480
+
+	PDB.initStore()
+   	VDB.initCache ()
+
+	var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
+	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) )
+	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
+	println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER*************************")
+	println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER: ${VDB.SCHEDULE_TRACKER}*************************")
+	val sched = new Schedule( VDB.SCHEDULE_TRACKER.toList )
+	println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}")
+	System.exit(0)
+} // VDBTest2
