@@ -1,7 +1,6 @@
 /*
-	TODO: Implement disk reads
-	      Restart after roll back
-	      Initialize the PDB
+	TODO: Implement roll back
+	      Implement csr testing
 	      
 */
 
@@ -74,7 +73,7 @@ object VDB
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
-
+    private val log_rec_size  = 264
     private val BEGIN    = -1
     private val COMMIT   = -2
     private val ROLLBACK = -3
@@ -92,7 +91,7 @@ object VDB
 
             val cache  = Array.ofDim [Page] (pages)      // database cache
             val logBuf = ArrayBuffer [LogRec] ()         // log buffer
-    private val map    = Map [Int, Int] ()               // map for finding pages in cache
+    private val map    = Map [Int, Int] ()               // map for finding pages in cache (page_number -> cache_index)
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Initialize the cache.
@@ -117,17 +116,21 @@ object VDB
         if (DEBUG) println (s"read ($tid, $oid)")
 	if (ANALYZE) logBuf += ((tid, oid, null, null))
 	val pageNum: Int = oid/recs_per_page
-        if(map contains (pageNum){
-		val cpi = map(oid / recs_per_page)         // the cache page index
-		val pg = cache(cpi)                        // page in cache
-	        (pg.p(oid % recs_per_page), cpi)           // record, location in cache
+	var pg = new Page()
+	var cpi = 0
+        if(map contains (pageNum)){
+		cpi = map(oid / recs_per_page)         // the cache page index
+		pg = cache(cpi)                        // page in cache
 	} // if
 	else
 	{
 		///////////////////////////////////////////// TODO: Consider the cpi = NULL, i.e. - need to do a disk read...
+		// note this is no good
+		cpi = map(oid / recs_per_page)
+		pg = cache(cpi)
 	} // else
 	
-        
+        (pg.p(oid % recs_per_page), cpi)           // record, location in cache
     } // read
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -220,7 +223,7 @@ object VDB
      {
      var raf = new RandomAccessFile(PDB.log_file,"rw")
      raf.seek(0)						
-     var buf = Array.ofDim[Byte](264)
+     var buf = Array.ofDim[Byte](log_rec_size)
      var count = 0;
      var read = raf.read(buf)
      print(s"read: $read")
