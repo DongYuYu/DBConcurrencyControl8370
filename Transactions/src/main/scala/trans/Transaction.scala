@@ -1,4 +1,4 @@
-A/*A
+/*
 implement PDB.init_store
 */
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -53,7 +53,8 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     private var writeLocks  = Map [Int, ReentrantReadWriteLock.WriteLock]() 	// set of write locks we haven't unlocked yet and the oid they apply to
     private val READ        = 0
     private val WRITE       = 1
-    private val ConcurrencyFlag = concurrency
+    private val TSO         = 1
+    private val _2PL        = 0
 
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -100,12 +101,13 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
      */
     def read2PL (oid: Int): VDB.Record =
     {
-        //if(concurrency ==2PL) read2PL(oid)
+        //if(concurrency == _2PL) read2PL(oid)
         //else readTSO(oid)
 	println("reading");
+	var lock = new ReentrantReadWriteLock()
 	var ret   = Array.ofDim[Byte](128)
-	LockTable.synchornized{
-		var lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
+	LockTable.synchronized{
+		lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
 	}
 	
 	var prime_lock = lock.writeLock()				// get the writeLock associated with the rrwl
@@ -186,13 +188,8 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	}
 	rwSet(oid)(WRITE) -= 1
 
-    } // write
-    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /** Write the record with the given 'oid'.
-      * Add Basic Time Stamp Ordering
-      *  @param oid    the object/record being written
-      *  @param value  the new value for the the record
-      */
+    } // write2PL
+    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'.
       * Add Basic Time Stamp Ordering check
@@ -211,6 +208,13 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
         VDB.read (tid, oid)._1
     }
     } // read
+    
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Write the record with the given 'oid'.
+      * Add Basic Time Stamp Ordering
+      *  @param oid    the object/record being written
+      *  @param value  the new value for the the record
+      */
     def writeTSO (oid: Int, value: VDB.Record)
     {
         if (tid< VDB.tsTable(oid)(1)|| tid<VDB.tsTable(oid)(0))         //check if read_TS(X)<=TS(T) or write_TS(X)<=TS(T), roll back T
@@ -225,13 +229,13 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
             VDB.write (tid, oid, value)
         }
 
-    } // write
+    } // writeTSO
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'. Redirect to different concurrency by ConcurrencyFlag setting
       *  @param oid  the object/record being read
       */
     def read (oid: Int) :VDB.Record ={
-        if (ConcurrencyFlag==1) readTSO(oid)
+        if (concurrency == TSO) readTSO(oid)
         else read2PL(oid)
 
     }
@@ -241,7 +245,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       *  @param value  the new value for the the record
       */
     def write (oid:Int, value:VDB.Record  ) ={
-        if (ConcurrencyFlag ==1 ) writeTSO(oid, value)
+        if ( concurrency == TSO ) writeTSO(oid, value)
         else write2PL (oid, value)
     }
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
