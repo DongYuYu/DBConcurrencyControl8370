@@ -129,23 +129,23 @@ object VDB
 		var cpi = 0
 		var pg = new Page()
 		var rec: Record = null
-		if(map contains (pageNum)){
-			cpi = map(pageNum)         // the cache page index
-			pg = cache(cpi)                        // page in cache
+		if(map contains (pageNum)){				// is the page in the cache already? 
+			cpi = map(pageNum)         			// the cache page index
+			pg = cache(cpi)                        		// page in cache
 			rec = pg.p(oid % recs_per_page)			//record location in cache page
 			return(rec,cpi)
 		} // if
-		else
+		else							// the page is not in the cache 
 		{
 			return cachePull(oid)
 		} // else
-		(rec, cpi)
+		//(rec, cpi)
 	} // read
 
 	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/**  A method to pull a page from the PDB into the cache
 	  * @param pageNumber  the number of the page in the PDB we wish to pull into the cache
-	  *  @return (record associated with oid, cachePage to fill with PDB page with record for oid)
+	  *  @return (record associated with oid, cachePage to fill with PDB page containing record for oid)
 	  */
 	def cachePull(oid : Int) : (Record, Int) =
 	{
@@ -156,7 +156,7 @@ object VDB
 		if (victimPageNum>=0) map -= victimPageNum
 		map += (newPageNumber -> cpi )
 		cache(cpi)=newPage
-		(newPage.p(oid % recs_per_page),cpi)			//record location in cache page)
+		(newPage.p(oid % recs_per_page),cpi)			//record location in cache page
 	}
 
 	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -165,13 +165,24 @@ object VDB
 
 	def victimize() : (Int, Int) =
 	{
-		if (map.nonEmpty){
+		if (map.nonEmpty && map.keys.size == pages){
 			val elem = map.last
-			PDB.write(elem._1,cache(elem._2))             //TODO implement PDB.write(page)  method
+			PDB.write(elem._1,cache(elem._2))
 			elem
 		}
 		else{
-			(-1,0)
+			var free = 0
+			if( map.keys.size > 0 ){
+			    breakable{	
+			    	for( i < cache.indices ){
+				     if(cache(i) == None ) {
+				     		 free = i
+						 break
+				     } // if
+			    	} // for
+			    } // breakable
+			} // if
+			(-1,free)						// non-full cache return value
 		}
 
 	}
@@ -185,13 +196,18 @@ object VDB
         if (DEBUG) println (s"write ($tid, $oid, $newVal)")
 	if (newVal == null) println(s"Cannot write null values to the database.")
 	else{
-		val (oldVal, cpage) = read (tid, oid)
-		/////////////////////////////////////////// what if we didn't have the value in the cache? Is it handled in the read? I think so...
-		println("old logBuf.size: " + logBuf.size)
-	        logBuf += ((tid, oid, oldVal, newVal))
-		println("new logBuf.size: " + logBuf.size)
-	        val pg = cache(map(oid / recs_per_page))		//Note: data value should be cached by read 
-	        pg.p(oid % recs_per_page) = newVal
+		val (oldVal, cpi) = read (tid, oid)			//get the old value and it's cpi from read
+		val recOffset 	  = oid % recs_per_page			
+		val pageNumber 	  = oid / recs_per_page
+		
+		if(DEBUG) println("old logBuf.size: " + logBuf.size)
+		
+	        logBuf += ((tid, oid, oldVal, newVal))			//add the operation to the logBuf
+
+		if(DEBUG) println("new logBuf.size: " + logBuf.size)
+		
+	        val pg		= cache(map(pageNumber))	 	//Note: data value should be cached by read 
+	        pg.p(recOffSet) = newVal				//change the old value in the page to the new value
 	}
         
     } // write

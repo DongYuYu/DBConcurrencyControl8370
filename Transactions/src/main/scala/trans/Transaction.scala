@@ -1,4 +1,4 @@
-/*A
+A/*A
 implement PDB.init_store
 */
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -198,7 +198,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       * Add Basic Time Stamp Ordering check
       *  @param oid  the object/record being read
       */
-    def readTS (oid: Int): VDB.Record =
+    def readTSO (oid: Int): VDB.Record =
     {   if (tid< VDB.tsTable(oid)(1))                   //check if write_TS(X)<=TS(T), roll back T
     {
         VDB.rollback(tid)
@@ -231,7 +231,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       *  @param oid  the object/record being read
       */
     def read (oid: Int) :VDB.Record ={
-        if (ConcurrencyFlag==1) readTS(oid)
+        if (ConcurrencyFlag==1) readTSO(oid)
         else read2PL(oid)
 
     }
@@ -261,7 +261,6 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	releaseWriteLocks()
         VDB.commit (tid)
         if (DEBUG) println (VDB.logBuf)
-
         releaseReadLocks()
         releaseWriteLocks()
 
