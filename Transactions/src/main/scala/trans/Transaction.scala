@@ -364,6 +364,8 @@ object TransactionTest extends App
     val t1 = new Transaction (new Schedule (List ( (r, 0, 0), (r, 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
     val t2 = new Transaction (new Schedule (List ( (r, 1, 0), (r, 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
 
+
+    //generate transactions
     val a = Array.ofDim[Transaction](50)
     for (i <-0 to 20)
         {
