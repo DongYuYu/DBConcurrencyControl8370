@@ -1,7 +1,7 @@
 /*
-	TODO:
-	      Restart after roll back
 
+	TODO: Implement roll back
+	      Implement csr testing
 	      
 */
 
@@ -82,8 +82,8 @@ object VDB
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
-	var tsTable = Array.ofDim[Int](pages*recs_per_page, 2)  //create a Timestamp Table record the (rts, ws) of oid
 
+    var tsTable = Array.ofDim[Int](pages*recs_per_page, 2)  //create a Timestamp Table record the (rts, ws) of oid
     private val BEGIN    = -1
     private val COMMIT   = -2
     private val ROLLBACK = -3
@@ -101,7 +101,7 @@ object VDB
 
             val cache  = Array.ofDim [Page] (pages)      // database cache
             val logBuf = ArrayBuffer [LogRec] ()         // log buffer
-    private val map    = Map [Int, Int] ()               // map for finding pages in cache (pageNumber -> cpi)
+	    private val map    = Map [Int, Int] ()               // map for finding pages in cache (pageNumber -> cpi)
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Initialize the cache.
@@ -265,7 +265,7 @@ object VDB
      {
      var raf = new RandomAccessFile(PDB.log_file,"rw")
      raf.seek(0)						
-     var buf = Array.ofDim[Byte](264)
+     var buf = Array.ofDim[Byte](log_rec_size)
      var count = 0;
      var read = raf.read(buf)
      print(s"read: $read")
