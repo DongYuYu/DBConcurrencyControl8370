@@ -60,7 +60,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 	{
 		this.synchronized {
 			var lock = table(oid)
-			if( lock != None && !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
+			if( lock != null && !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
 		}
 
 	}
@@ -295,7 +295,7 @@ object VDB
 	var i = logBuf.length-2
 	var rolling = true
 	var data = Tuple4(0,0,Array.ofDim[Byte](record_size) ,Array.ofDim[Byte](record_size))
-	while(rolling && i >= 0){
+	while(rolling && i >= 0&&logBuf(i)!=null){
 		data = logBuf(i)
 		if( data._1 == tid ){
 		    if( data._2 != BEGIN){
