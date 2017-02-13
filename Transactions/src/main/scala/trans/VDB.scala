@@ -17,10 +17,12 @@
 package trans
 
 import scala.collection.mutable.{ArrayBuffer, Map}
+import scala.util.Random
 
 import java.io.{IOException, RandomAccessFile, FileNotFoundException}
 import java.nio.ByteBuffer
 import java.util.concurrent.locks.ReentrantReadWriteLock
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The 'LockTable' object represents the lock table for the VDB
  */
@@ -166,7 +168,12 @@ object VDB
 	def victimize() : (Int, Int) =
 	{
 		if (map.nonEmpty){
-			val elem = map.last
+			val num = Random.nextInt(map.size)
+			val key = map.keys.toSeq
+			var num1 = key(num)
+			val v = map.getOrElse(num1,0)
+			val elem = (num1, v)
+			//val elem = map.last
 			PDB.write(elem._1,cache(elem._2))             //TODO implement PDB.write(page)  method
 			elem
 		}
@@ -265,7 +272,8 @@ object VDB
      {
      var raf = new RandomAccessFile(PDB.log_file,"rw")
      raf.seek(0)						
-     var buf = Array.ofDim[Byte](log_rec_size)
+     //var buf = Array.ofDim[Byte](log_rec_size) ??
+	 var buf = Array.ofDim[Byte](128)
      var count = 0;
      var read = raf.read(buf)
      print(s"read: $read")
