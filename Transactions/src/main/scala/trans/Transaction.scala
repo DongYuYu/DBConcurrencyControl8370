@@ -22,7 +22,7 @@ package trans
 
 import Operation._
 
-import scala.collection.mutable.{ListBuffer, Map, Set}
+import scala.collection.mutable.{ArrayBuffer, Map, Set}
 import java.util.concurrent.locks.ReentrantReadWriteLock
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` companion object
@@ -109,10 +109,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     {
         //if(concurrency ==2PL) read2PL(oid)
         //else readTSO(oid)
-	println("reading");
+	println("reading")
+        var lock = new ReentrantReadWriteLock()
 	var ret   = Array.ofDim[Byte](128)
-	LockTable.synchornized{
-		var lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
+	LockTable.synchronized{
+		lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
 	}
 	
 	var prime_lock = lock.writeLock()				// get the writeLock associated with the rrwl
@@ -361,16 +362,18 @@ object TransactionTest extends App
 {   import scala.util.Random
     private val _2PL = 0
     private val TSO = 1
-    val t1 = new Transaction (new Schedule (List ( (r, 0, 0), (r, 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
-    val t2 = new Transaction (new Schedule (List ( (r, 1, 0), (r, 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
+    private val transactionNum =20
+    private val opPerTran = 23
+    val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
+    val t2 = new Transaction (new Schedule (List ( ('r', 1, 0), ('r', 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
 
 
     //generate transactions
     val a = Array.ofDim[Transaction](50)
-    for (i <-0 to 20)
+    for (i <-0 to transactionNum)
         {
             var l: List[(Char,Int,Int)]= List()
-            for (j <- 0 to 23)
+            for (j <- 0 to opPerTran)
             {   var k='x'
                 if ( Random.nextDouble()>0.5)
                 {k='r'}
@@ -387,6 +390,21 @@ object TransactionTest extends App
     VDB.initCache()
     for (i<-0 to 20)
     a(i).start()
+
+    /// generate new transaction if rollback
+    var rollback = new ArrayBuffer[Int]
+    for (i<-0 to 20)
+       if  (a(i).getRollback()) {
+           rollback += i
+
+       }
+    val r = Array.ofDim[Transaction](rollback.size)
+    for (i<-0 to rollback.size){
+       r(i) = new Transaction( a(rollback(i)).getsch(),TSO)
+
+    }
+
+
    /* for (t1<-transactions){
         if (t1.ROLLBACK==true) {
         val x = new Transaction (t1.getsch())
