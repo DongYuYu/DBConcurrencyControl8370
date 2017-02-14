@@ -1,7 +1,11 @@
-/*AA
+/*A
+	TODO:
+		find a thread safe collection to use
+		implement the deadlock checker
+		implement restart after roll back
+		rigorously test roll back
+		rigorously test 2PL and TSO implementations
 
-	TODO: Implement roll back
-	      Implement csr testing
 	      
 */
 
@@ -11,7 +15,7 @@
  *  @date    Tue Jan 24 14:31:26 EST 2017
  *  @see     LICENSE (MIT style license file).
  *
- *	I'm adding these for Medhi right now. 
+ *
  */
 
 package trans
@@ -61,8 +65,11 @@ import Operation._
 	def checkLock(oid: Int) 
 	{
 		this.synchronized {
-			var lock = table(oid)
-			if( lock != None && !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
+		  if(table contains oid){
+		  	   var lock = table(oid)
+      		  	   if( !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
+		  }//if 
+			
 		}
 
 	}
@@ -106,6 +113,7 @@ object VDB
                     val logBuf 		 = ArrayBuffer [LogRec]   ()            // log buffer
 	    private val map    		 = Map         [Int, Int] ()            // map for finding pages in cache (pageNumber -> cpi)
 	    	    val SCHEDULE_TRACKER = ArrayBuffer [Op]       ()
+		    val sched_file       = new RandomAccessFile("sched_file","rw")
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Initialize the cache.
      */
@@ -128,10 +136,24 @@ object VDB
     	{
 		if (DEBUG) println (s"read ($tid, $oid)")
 		val op = (r,tid,oid)
+		
 		if (CSR_TESTING) {
-		   SCHEDULE_TRACKER += op
-		   println(s"SCHEDULE_TRACKER from read method: ${SCHEDULE_TRACKER}")
-		}
+	  	   	SCHEDULE_TRACKER.synchronized{
+				SCHEDULE_TRACKER += op
+			}// synchronized
+	  	   	val sched_file = new RandomAccessFile("sched_file","rw")
+		   	   
+			var bb = ByteBuffer.allocate(12)
+	  	 	//get a new ByteBuffer
+	   		bb.putInt(0)
+	   		bb.putInt(tid)
+	   		bb.putInt(oid)
+	   		var ba = bb.array()
+	   		sched_file.seek(sched_file.length())                //make sure to be appending
+	   		sched_file.write(ba)
+	   		//println("FlushlogBuff")
+	   		//println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
+		} // if
 		val pageNum = oid/recs_per_page
 		var cpi = 0
 		var pg = new Page()
@@ -140,7 +162,7 @@ object VDB
 			cpi = map(pageNum)         			// the cache page index
 			pg = cache(cpi)                        		// page in cache
 			rec = pg.p(oid % recs_per_page)			//record location in cache page
-			return(rec,cpi)
+			return (rec,cpi)
 		} // if
 		else							// the page is not in the cache 
 		{
@@ -204,20 +226,30 @@ object VDB
 	val op = (w,tid,oid)
 	if (CSR_TESTING) {
 	   SCHEDULE_TRACKER += op
-	   println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
-	}
-	
+	   val sched_file = new RandomAccessFile("sched_file","rw")
+	   var bb = ByteBuffer.allocate(12)
+	   //get a new ByteBuffer
+	   bb.putInt(1)
+	   bb.putInt(tid)
+	   bb.putInt(oid)
+	   var ba = bb.array()
+	   sched_file.seek(sched_file.length())                //make sure to be appending
+	   sched_file.write(ba)
+	   //println("FlushlogBuff")
+	   //println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
+	} // if
+
 	if (newVal == null) println(s"Cannot write null values to the database.")
 	else{
 		val (oldVal, cpi) = read (tid, oid)			//get the old value and it's cpi from read
 		val recOffset 	  = oid % recs_per_page			
 		val pageNumber 	  = oid / recs_per_page
 		
-		if(DEBUG) println("old logBuf.size: " + logBuf.size)
+		//if(DEBUG) println("old logBuf.size: " + logBuf.size)
 		
 	        logBuf += ((tid, oid, oldVal, newVal))			//add the operation to the logBuf
 
-		if(DEBUG) println("new logBuf.size: " + logBuf.size)
+		//if(DEBUG) println("new logBuf.size: " + logBuf.size)
 		
 	        val pg		= cache(map(pageNumber))	 	//Note: data value should be cached by read 
 	        pg.p(recOffset) = newVal				//change the old value in the page to the new value
@@ -245,14 +277,14 @@ object VDB
  	logBuf += ((tid, COMMIT, null, null))
         if (DEBUG) {
 	   println (s"commit ($tid)")
-	   printLogBuf()
+	   //printLogBuf()
 	}
 
 	flushLogBuf()			 				//flush the logBuf
 	
 	lastCommit = logBuf.length - 1					//update the lastCommit pointer
 
-	if( DEBUG ) print_log()
+	//if( DEBUG ) print_log()
 	
     } // commit
 
@@ -274,7 +306,7 @@ object VDB
 			var ba = bb.array()
 			raf.seek(raf.length())                //make sure to be appending
 			raf.write(ba)
-			println("FlushlogBuff")
+			//println("FlushlogBuff")
 		} // for
 	} // flushLogBuf()
     
@@ -292,25 +324,25 @@ object VDB
      */
      def print_log() 
      {
-     var raf = new RandomAccessFile(PDB.log_file,"rw")
-     raf.seek(0)						
-     var buf = Array.ofDim[Byte](log_rec_size)
-     var count = 0;
-     var read = raf.read(buf)
-     print(s"read: $read")
-     while( read != -1 ){
-     	    println(s"count: $count")
-     	    var bb = ByteBuffer.allocate(264)
+    	   var raf = new RandomAccessFile(PDB.log_file,"rw")
+     	   raf.seek(0)						
+     	   var buf = Array.ofDim[Byte](log_rec_size)
+     	   var count = 0;
+     	   var read = raf.read(buf)
+     	   print(s"read: $read")
+    	   while( read != -1 ){
+     	   	  //println(s"count: $count")
+     	    	  var bb = ByteBuffer.allocate(264)
 
-	    bb.put(buf);
+		  bb.put(buf);
 
-	    bb.position(0)
-	    println(s"(${bb.getInt()},${bb.getInt()},"        +
-	       	       s"${bb.array.slice(8,135).toString()},"  +
-		       s"${bb.array.slice(136,263).toString()}")
-	    read = raf.read(buf)
-	    count+=1
-	}// while
+	    	  bb.position(0)
+	    	  println(s"(${bb.getInt()},${bb.getInt()},"        +
+	       	       	   s"${bb.array.slice(8,135).toString()},"  +
+		           s"${bb.array.slice(136,263).toString()}")
+	          read = raf.read(buf)
+	          count+=1
+	   }// while
     }
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -325,18 +357,17 @@ object VDB
 	var rolling = true
 	var data = Tuple4(0,0,Array.ofDim[Byte](record_size) ,Array.ofDim[Byte](record_size))
 	while(rolling && i >= 0){
-		data = logBuf(i)
-		if( data._1 == tid ){
-		    if( data._2 != BEGIN){
-		    	val page       = data._2/32
-		    	var cache_page = map.get(page)
-		    	if(cache_page != None){
-		    		  write(data._1, data._2, data._3);
+		val (rec_tid, oid, oldVal, newVal) = logBuf(i)
+		if( rec_tid == tid ){
+		    if( oid != BEGIN && oid != COMMIT && oid != ROLLBACK){
+		    	val page       = oid/32
+		    	
+		    	if(map contains page){
+		    		  write(tid, oid, oldVal);
 		    	}// if
 		    	else{
-/*				val memPage = PDB.fetchPage(page)
-				cache_page = victimizeCache(memPage);
-*/ //TODO: Implement Restart after Roll Back
+				val (rec,cpi) = cachePull(page)
+				write(tid,oid,oldVal)
 			}// else
 		    }// if
 		    else rolling = false
@@ -434,22 +465,31 @@ object PDB
 	def recover
 	{
 	}
-//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	
+	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/**  A method to read a page from the PDB and return the content of the page
 	  * @param page  the number of the page in the PDB we wish to pull into the cache
 	  *  @return VDB.Page the content of the page in the PDB
 	  */
 	def fetchPage(page: Int): VDB.Page =
 	{
+		//println("reading from store")
 		val store = new RandomAccessFile(PDB.store_file,"rw")
+		//println(s"size of store: ${store.length()}")
 		var buf = Array.ofDim[Byte](record_size)
 		store.seek(page * recs_per_page * record_size)
-		val pg = VDB.Page()
+		var pg = VDB.Page()
 		var p = pg.p
 		for(i <- p.indices){
+		      	p(i) = Array.ofDim[Byte](record_size)
+			//println(s"p(i).length: ${p(i).length}")
 			var bb = ByteBuffer.allocate(record_size)
-			store.read(buf)
+			var read = store.read(buf)
+			//println(s"read $read many bytes from the store")
 			bb.put(buf)
+			//println(s"arrayOffset: ${bb.arrayOffset()}")
+			//println(s"bb.array.length: ${bb.array.length}")
+			bb.position(0)
 			bb.get(p(i))
 		} // for
 		pg
@@ -492,8 +532,8 @@ object VDBTest extends App
 
 object VDBTest2 extends App
 {
-	val OPS_PER_TRANSACTION  = 15
-    	val TOTAL_TRANSACTIONS   = 10
+ 	val OPS_PER_TRANSACTION  = 15
+    	val TOTAL_TRANSACTIONS   = 5
     	val TOTAL_OBJECTS	 = 480
 
 	PDB.initStore()
@@ -502,9 +542,44 @@ object VDBTest2 extends App
 	var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) )
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
-	println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER*************************")
-	println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER: ${VDB.SCHEDULE_TRACKER}*************************")
+	println("all transactions started")
+	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
+	println("all transactions finished")
+	
+	//println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER*************************")
+	//println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER: ${VDB.SCHEDULE_TRACKER}*************************")
+	//var raf = new RandomAccessFile("sched_file","rw")
+
 	val sched = new Schedule( VDB.SCHEDULE_TRACKER.toList )
-	println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}")
+	println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
 	System.exit(0)
 } // VDBTest2
+
+object VDBTest2_2 extends App
+{
+     val TOTAL_TRANSACTIONS   = 5
+     var raf = new RandomAccessFile("sched_file","rw")
+     raf.seek(0)						
+     var buf   = Array.ofDim[Byte](12)
+     var read  = raf.read(buf)
+     var s = ArrayBuffer[(Char,Int,Int)]()
+     while( read != -1 ){
+     	    println(s"read: $read")
+     	    //println(s"count: $count")
+     	    var bb = ByteBuffer.allocate(12)
+	    bb.put(buf);
+	    bb.position(0)
+	    var firstNum = bb.getInt()
+	    var firstLet = r
+	    if( firstNum == 0 ) firstLet = r
+	    else firstLet = w
+	    val tup = (firstLet,bb.getInt(),bb.getInt())
+	    s += tup
+	    read = raf.read(buf)
+     }// while
+     val sched = new Schedule( s.toList )
+     println(sched)
+     println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
+} // VDBTest2_2
+
+    
