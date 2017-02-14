@@ -21,12 +21,15 @@
 package trans
 
 import scala.collection.mutable.{ArrayBuffer, Map}
+
 import scala.util.control.Breaks._
+import scala.util.Random
 import java.io.{IOException, RandomAccessFile, FileNotFoundException}
 import java.nio.ByteBuffer
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import Operation._
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The 'LockTable' object represents the lock table for the VDB
  */
@@ -69,13 +72,8 @@ import Operation._
 		  	   var lock = table(oid)
       		  	   if( !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
 		  }//if 
-			
 		}
-
 	}
-
-	
-	
  }
  
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -194,8 +192,14 @@ object VDB
 
 	def victimize() : (Int, Int) =
 	{
-		if (map.nonEmpty && map.keys.size == pages){
-			val elem = map.last
+
+		if (map.nonEmpty){
+			val num = Random.nextInt(map.size)
+			val key = map.keys.toSeq
+			var num1 = key(num)
+			val v = map.getOrElse(num1,0)
+			val elem = (num1, v)
+			//val elem = map.last
 			PDB.write(elem._1,cache(elem._2))
 			elem
 		}
@@ -322,27 +326,28 @@ object VDB
     /** Print the current contents of the log_file
      *  @param raf  The log_file
      */
-     def print_log() 
-     {
-    	   var raf = new RandomAccessFile(PDB.log_file,"rw")
-     	   raf.seek(0)						
-     	   var buf = Array.ofDim[Byte](log_rec_size)
-     	   var count = 0;
-     	   var read = raf.read(buf)
-     	   print(s"read: $read")
-    	   while( read != -1 ){
-     	   	  //println(s"count: $count")
-     	    	  var bb = ByteBuffer.allocate(264)
+    def print_log() 
+    {
+	var raf = new RandomAccessFile(PDB.log_file,"rw")
+     	raf.seek(0)						
+     	//var buf = Array.ofDim[Byte](log_rec_size) ??
+	var buf = Array.ofDim[Byte](128)
+     	var count = 0;
+     	var read = raf.read(buf)
+     	print(s"read: $read")
+     	while( read != -1 ){
+     	    println(s"count: $count")
+     	    var bb = ByteBuffer.allocate(264)
 
-		  bb.put(buf);
+	    bb.put(buf);
 
-	    	  bb.position(0)
-	    	  println(s"(${bb.getInt()},${bb.getInt()},"        +
-	       	       	   s"${bb.array.slice(8,135).toString()},"  +
-		           s"${bb.array.slice(136,263).toString()}")
-	          read = raf.read(buf)
-	          count+=1
-	   }// while
+	    bb.position(0)
+	    println(s"(${bb.getInt()},${bb.getInt()},"        +
+	       	       s"${bb.array.slice(8,135).toString()},"  +
+		       s"${bb.array.slice(136,263).toString()}")
+	    read = raf.read(buf)
+	    count+=1
+	}// while
     }
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -359,9 +364,8 @@ object VDB
 	while(rolling && i >= 0){
 		val (rec_tid, oid, oldVal, newVal) = logBuf(i)
 		if( rec_tid == tid ){
-		    if( oid != BEGIN && oid != COMMIT && oid != ROLLBACK){
+		    if( oid != BEGIN ){
 		    	val page       = oid/32
-		    	
 		    	if(map contains page){
 		    		  write(tid, oid, oldVal);
 		    	}// if

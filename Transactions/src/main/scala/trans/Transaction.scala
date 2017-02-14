@@ -21,7 +21,8 @@ implement PDB.init_store
 package trans
 
 import Operation._
-import scala.collection.mutable.{Map,Set}
+
+import scala.collection.mutable.{ArrayBuffer, Map, Set}
 import java.util.concurrent.locks.ReentrantReadWriteLock
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` companion object
@@ -56,6 +57,10 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
     private val TSO         = 0
     private val _2PL        = 1
 
+    private val ConcurrencyFlag = concurrency
+    private var ROLLBACK = false
+    private var thisSch = sch
+
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Run this transaction by executing its operations.
@@ -65,10 +70,10 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
     	fillReadWriteSet()
         begin ()
         for (i <- sch.indices) {
-            val op = sch(i)
+            val (op,tid,oid) = sch(i)
             //if(DEBUG) println (sch(i))
-            if (op._1 == r) read (op._3)
-            else            write (op._3, VDB.str2record (op.toString))
+            if (op == r) read (oid)
+            else         write (oid, VDB.str2record (sch(i).toString))
         } // for
         commit ()
     } // run
@@ -79,17 +84,17 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
     def fillReadWriteSet()
     {
 	for(i <- sch.indices){
-	      val op = sch(i)
-	      if (rwSet contains op._3){
-	      	 if( op._1 == r ) rwSet(op._3)(READ) += 1		//increment the read value for this object in the readWriteSet
-		 else             rwSet(op._3)(WRITE) += 1		//increment the write value
+	      val (op,tid,oid) = sch(i)
+	      if (rwSet contains oid){
+	      	 if( op == r ) rwSet(oid)(READ)  += 1		//increment the read value for this object in the readWriteSet
+		 else          rwSet(oid)(WRITE) += 1		//increment the write value
 	      } // if
 	      else{
 		var tup = Array.fill(2)(0)				//add a new member to the read write set
-		if( op._1 == r ) tup(READ) = 1				//make it a read member
-		else             tup(WRITE) = 1				//make it a write member
+		if( op == r ) tup(READ) = 1				//make it a read member
+		else          tup(WRITE) = 1				//make it a write member
 		
-		rwSet += (op._3 -> tup) 
+		rwSet += (oid -> tup) 
 	      } // else
 	      numOps += 1
 	}// for
@@ -121,10 +126,9 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
      *  @param oid  the object/record being read
      */
     def read2PL (oid: Int): VDB.Record =
-    {
-        
+    {        
 	var lock = new ReentrantReadWriteLock()
-	
+
 	LockTable.synchronized{
 		lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
 	}
@@ -139,30 +143,18 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
 	else if( (rwSet contains oid) && (rwSet(oid)(1)>0) ){		// if you will need to write this item in the future, use the writeLock for read
 	     writeLock.lock()	     					// try to lock the write lock
 	     ret = (VDB.read (tid,oid))._1
-	     /*
-	     println(s"adding new lock to writeLocks, before: ")
-	     for(i <- writeLocks.keys) println(i)
-	     println(s"added new lock to writeLocks, after: ")
-	     for(i <- writeLocks.keys) println(i)
-	     */
      	     writeLocks += (oid -> writeLock)				// add the writeLock to your set of currently held writeLocks
 	} // else if
 	else{
 		readLock.lock() 					// try to lock the read lock
 		ret = (VDB.read(tid,oid))._1
-		/*
-		println(s"adding new lock to readLocks, before: ")
-	     	for(i <- readLocks.keys) println(i)
-	     	println(s"added new lock to readLocks, after: ")
-	     	for(i <- readLocks.keys) println(i)
-		*/
 		readLocks += (oid -> readLock)	 			// add the readLock to your set of currently held readLocks	     
 	} // else
 	
 	rwSet(oid)(READ) -= 1						// take a read of this object off of the rw_set
  
 	if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed 
-	    (rwSet(oid)(WRITE) == 0) ) rwSet -= oid
+	    (rwSet(oid)(WRITE) == 0)   ) rwSet -= oid
 	   
 	ret
     } // read
@@ -194,37 +186,86 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
 		VDB.write(tid, oid, value)
 	}
 	rwSet(oid)(WRITE) -= 1
-
+        if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed
+                (rwSet(oid)(WRITE) == 0) ) rwSet -= oid
     } // write2PL
+
+    def getsch (): Schedule ={
+
+        this.sch
+    }
+    def getRollback(): Boolean={
+        this.ROLLBACK
+    }
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'.
-      * Add Basic Time Stamp Ordering check
+      * Add Strict Timestamp Ordering
       *  @param oid  the object/record being read
       */
-    def readTSO (oid: Int): VDB.Record =
-    {   if (tid< VDB.tsTable(oid)(1))                   //check if write_TS(X)<=TS(T), roll back T
-    {
-        VDB.rollback(tid)
-        null
-    }
 
-    else
-    {                                           // else execute read and set read_TS(X)=TS(T)
-        VDB.tsTable(oid)(0) = tid
-        VDB.read (tid, oid)._1
-    }
-    } // read
-    
+    def readTSO (oid: Int): VDB.Record =
+    {
+	val readTS = VDB.tsTable(oidD)(1)
+	if (tid < readTS){					//check if write_TS(X)<=TS(T), roll back T **************DID YOU DO THIS CORRECTLY? 
+           VDB.rollback(tid)					// as it stands you have roll back if read_TS(X) < TS(T), is that correct? 
+           null
+    	} // if
+    	else{							// else execute read and set read_TS(X)=TS(T)
+        	VDB.tsTable(oid)(0) = tid
+        	VDB.read (tid, oid)._1
+    	}
+        if (tid > VDB.tsTable(oid)(1))				//check if write_TS(X)<=TS(T), read using lock  ********** WHAT IS THIS FOR?**********
+        {
+            VDB.tsTable(oid)(1) = tid
+            println("reading")
+
+            var lock      = LockTable.lock(oid)					// get the rrwl associated with this object from the lock table
+            var writeLock = lock.writeLock()            			// get the writeLock associated with the rrwl
+	    var readLock  = lock.readLock()
+            if (writeLock.isHeldByCurrentThread()) {            		// if you already hold the write lock, start reading
+              return  (VDB.read(tid, oid))._1
+            } // if
+            /*   else if( (rwSet contains oid) && (rwSet(oid)(1)>0) ){		// if you will need to write this item in the future, use the writeLock for read
+                writeLock.lock()	     					// try to lock the write lock
+                (VDB.read (tid,oid))._1						// is this a return statement? 
+                writeLocks += (oid -> prime_lock)				// if so how do you get here? 
+            } // else if*/
+
+            else{
+                readLock.lock()						// try to lock the read lock
+                return (VDB.read(tid,oid))._1
+               // readLocks += (oid -> prime_lock2)			// are we locking without unlocking? 
+            } // else
+
+          //  rwSet(oid)(READ) -= 1						// take a read of this object off of the rw_set *** WHY NOT decrement the RW set? 
+
+            if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed
+                    (rwSet(oid)(WRITE) == 0) ) rwSet -= oid
+
+            (VDB.read(tid,oid))._1
+
+
+        }
+        else
+        {                                           // rollback if the current TS is bigger than write_TS, which means some yonger Tj has written oid
+            rollback()
+            null
+        }
+    } // readTSO
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Write the record with the given 'oid'.
-      * Add Basic Time Stamp Ordering
+      * Add Strict Time Stamp Ordering
       *  @param oid    the object/record being written
       *  @param value  the new value for the the record
       */
     def writeTSO (oid: Int, value: VDB.Record)
+
     {
-        if (tid < VDB.tsTable(oid)(1)|| tid<VDB.tsTable(oid)(0))         //check if read_TS(X)<=TS(T) or write_TS(X)<=TS(T), roll back T
+	/*basic TSO
+        if (tid< VDB.tsTable(oid)(1)|| tid<VDB.tsTable(oid)(0))         //check if read_TS(X)<=TS(T) or write_TS(X)<=TS(T), roll back T
+
         {
             VDB.rollback(tid)
             null
@@ -235,45 +276,30 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
             VDB.tsTable(oid)(1) = tid
             VDB.write (tid, oid, value)
         }
-
-    } // writeTSO
-    
-    //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /** Unlock any read locks this transaction may own.
-     */
-     def releaseReadLocks()
-     {
-	/*
-	println("keys:")
-	for( i <- readLocks.keys ) println((i))
-	println("values:")
-	for( i <- readLocks.keys ) println(readLocks(i))
 	*/
 	
-	for( i <- readLocks.keys ){
-            readLocks(i).unlock()						//unlock the lock
-            LockTable.checkLock(i)   						//remove the lock from the lock table if necessary
-	    readLocks -= i
-	} // for
+        if (tid> VDB.tsTable(oid)(1))         //check if current TSO >=write_TS, require the write lock
+        {
 	
-     } // releaseReadLocks
-
-
-     this.synchronized{
-	
-     }
-    //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /** Unlock any write locks this transaction may own.
-     */
-     def releaseWriteLocks()
-     {
-	for( i <- writeLocks.keys ){
-            writeLocks(i).unlock()						//unlock the lock
-            LockTable.checkLock(i)						//remove the lock from the lock table if necessary
-	    writeLocks -= i
-	} // for
-     } // releaseWriteLocks
-
+            VDB.tsTable(oid)(1) = tid
+            var lock = LockTable.lock(oid)
+            var primeLock = lock.writeLock()
+            if(primeLock.isHeldByCurrentThread) VDB.write(tid, oid, value)
+            else{
+                primeLock.lock()
+                writeLocks += (oid -> primeLock)
+                VDB.write(tid, oid, value)
+            }
+            rwSet(oid)(WRITE) -= 1
+            if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed
+                    (rwSet(oid)(WRITE) == 0) ) rwSet -= oid
+        }
+        else                                                       // else roll back since some younger transaton has written the oid
+        {
+            rollback()
+        }
+    } // writeTSO
+    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Begin this transaction.
      */
@@ -287,8 +313,7 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
      */
     def commit ()
     {
-	releaseReadLocks()
-	releaseWriteLocks()
+
         VDB.commit (tid)
         //if (DEBUG) println (VDB.logBuf)
     } // commit
@@ -297,8 +322,10 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
     /** Rollback this transaction.
      */
     def rollback ()
-    {
+    {   ROLLBACK= true
         VDB.rollback (tid)
+        releaseReadLocks()
+        releaseWriteLocks()
     } // rollback
 
 } // Transaction class
@@ -309,14 +336,58 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
  *  > run-main trans.TransactionTest
  */
 object TransactionTest extends App
-{
+{   import scala.util.Random
     private val _2PL = 0
     private val TSO = 1
-    val t1 = new Transaction (new Schedule (List ( (r, 0, 0), (r, 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
-    val t2 = new Transaction (new Schedule (List ( (r, 1, 0), (r, 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
+    private val transactionNum =20
+    private val opPerTran = 23
+    val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
+    val t2 = new Transaction (new Schedule (List ( ('r', 1, 0), ('r', 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
+
+
+    //generate transactions
+    val a = Array.ofDim[Transaction](50)
+    for (i <-0 to transactionNum)
+        {
+            var l: List[(Char,Int,Int)]= List()
+            for (j <- 0 to opPerTran)
+            {   var k='x'
+                if ( Random.nextDouble()>0.5)
+                {k='r'}
+                 else
+                {k = 'w'}
+
+                 val b=Random.nextInt(10)
+                l =  (k,0,b) :: l
+            }
+            a(i) =new Transaction (new Schedule (l),TSO)
+
+        }
+
     VDB.initCache()
-    t1.start ()
-    t2.start ()
+    for (i<-0 to 20)
+    a(i).start()
+
+    /// generate new transaction if rollback
+    var rollback = new ArrayBuffer[Int]
+    for (i<-0 to 20)
+       if  (a(i).getRollback()) {
+           rollback += i
+
+       }
+    val r = Array.ofDim[Transaction](rollback.size)
+    for (i<-0 to rollback.size){
+       r(i) = new Transaction( a(rollback(i)).getsch(),TSO)
+
+    }
+
+
+   /* for (t1<-transactions){
+        if (t1.ROLLBACK==true) {
+        val x = new Transaction (t1.getsch())
+        x.start()}
+    }*/
+
 
 } // TransactionTest object
 
