@@ -61,7 +61,6 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
     private var ROLLBACK = false
     private var thisSch = sch
 
-
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Run this transaction by executing its operations.
      */
@@ -69,13 +68,18 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
     {
     	fillReadWriteSet()
         begin ()
-        for (i <- sch.indices) {
-            val (op,tid,oid) = sch(i)
-            //if(DEBUG) println (sch(i))
-            if (op == r) read (oid)
-            else         write (oid, VDB.str2record (sch(i).toString))
-        } // for
-        commit ()
+	breakable{
+		for (i <- sch.indices) {
+	    	    if(!ROLLBACK){
+			val (op,tid,oid) = sch(i)
+            	    	//if(DEBUG) println (sch(i))
+            	    	if (op == r) read (oid)
+            	    	else         write (oid, VDB.str2record (sch(i).toString))
+	    	    } // if
+	    	    else break   
+        	} // for
+	} // breakable
+        if(!ROLLBACK) commit ()
     } // run
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -206,7 +210,7 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
 
     def readTSO (oid: Int): VDB.Record =
     {
-	val readTS = VDB.tsTable(oidD)(1)
+	val readTS = VDB.tsTable(oid)(1)
 	if (tid < readTS){					//check if write_TS(X)<=TS(T), roll back T **************DID YOU DO THIS CORRECTLY? 
            VDB.rollback(tid)					// as it stands you have roll back if read_TS(X) < TS(T), is that correct? 
            null
@@ -261,24 +265,8 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
       *  @param value  the new value for the the record
       */
     def writeTSO (oid: Int, value: VDB.Record)
-
     {
-	/*basic TSO
-        if (tid< VDB.tsTable(oid)(1)|| tid<VDB.tsTable(oid)(0))         //check if read_TS(X)<=TS(T) or write_TS(X)<=TS(T), roll back T
-
-        {
-            VDB.rollback(tid)
-            null
-        }
-
-        else                                                       // else execute write and set write_TS(X) = TS (T)
-        {
-            VDB.tsTable(oid)(1) = tid
-            VDB.write (tid, oid, value)
-        }
-	*/
-	
-        if (tid> VDB.tsTable(oid)(1))         //check if current TSO >=write_TS, require the write lock
+        if (tid > VDB.tsTable(oid)(1))         //check if current TSO >=write_TS, require the write lock
         {
 	
             VDB.tsTable(oid)(1) = tid
@@ -328,8 +316,10 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
         releaseWriteLocks()
     } // rollback
 
+    
 } // Transaction class
 
+ 
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `TransactionTest` object is used to test the `Transaction` class.
