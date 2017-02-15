@@ -362,6 +362,7 @@ object VDB
 	var rolling = true
 	var data = Tuple4(0,0,Array.ofDim[Byte](record_size) ,Array.ofDim[Byte](record_size))
 	while(rolling && i >= 0){
+
 		val (rec_tid, oid, oldVal, newVal) = logBuf(i)
 		if( rec_tid == tid ){
 		    if( oid != BEGIN ){
