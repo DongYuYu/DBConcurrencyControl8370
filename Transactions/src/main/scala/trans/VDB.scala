@@ -55,8 +55,10 @@ import Operation._
 			if( lock == None ){						// in the lock table
 				table += (oid -> new ReentrantReadWriteLock(true))		// with the object in the table
 				lock = table.get(oid)
+
 			}// if
 			lock.get							// Return the WriteLock for this RRWL
+
 		}
 
 	} // lock
@@ -77,7 +79,14 @@ import Operation._
 		}
 	}
  }
- 
+
+class adjustLock extends ReentrantReadWriteLock {
+	override def getOwner: Thread = super.getOwner
+
+
+}
+
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `VDB` object represents the Volatile Database.
  */
@@ -92,6 +101,13 @@ object VDB
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
     private val log_rec_size  = 264			 // size of a log record
+
+
+	import scalation.graphalytics.Graph
+	import scala.collection.immutable.Set
+	import scalation.graphalytics.Cycle.hasCycle
+
+
     
     var tsTable = Array.ofDim[Int](pages*recs_per_page, 2)  //create a Timestamp Table record the (rts, ws) of oid
     private val BEGIN    = -1
@@ -364,6 +380,7 @@ object VDB
 	var rolling = true
 	var data = Tuple4(0,0,Array.ofDim[Byte](record_size) ,Array.ofDim[Byte](record_size))
 	while(rolling && i >= 0){
+
 		val (rec_tid, oid, oldVal, newVal) = logBuf(i)
 		if( rec_tid == tid ){
 		    if( oid != BEGIN ){
