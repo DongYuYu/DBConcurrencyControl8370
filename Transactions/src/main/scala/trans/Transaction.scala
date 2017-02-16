@@ -211,7 +211,7 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
 			    rec = VDB.read(tid,oid)._1
 			    if(readTS < tid) VDB.tsTable(oid)(0) = tid
 			} // if				
-			else{
+			else{								// THIS SHOULD HAPPEN
 	    			readLock.lock()						// lock the readLock
 				rec = VDB.read(tid, oid)._1
 				if(readTS < tid) VDB.tsTable(oid)(0) = tid
@@ -237,22 +237,22 @@ class Transaction (sch: Schedule, concurrency: Int =1) extends Thread
     def writeTSO (oid: Int, value: VDB.Record)
     {
         
-	val readTS  = VDB.tsTable(oid)(0)
-	val writeTS = VDB.tsTable(oid)(1)
+	val readTS  = VDB.tsTable(oid)(READ)
+	val writeTS = VDB.tsTable(oid)(WRITE)
         if(tid < readTS || tid < writeTS) rollback()			
 	else {
 	     if( tid > writeTS ){						// check for STSO
 	     	 val lock      = LockTable.lock(oid)
 		 val writeLock = lock.writeLock()
-		 if( writeLocks contains oid ) {				// write 'em if you got 'em
-		     VDB.write(tid,oid,value)
-		     VDB.tsTable(oid)(1) = tid
+		 if( writeLocks contains oid ) {				// SHOLDN'T HAPPEN write 'em if you got 'em
+		     VDB.write(tid,oid,value)  					// writeLocks contains oid => we were last to write to this object => writeTS == tid
+		     VDB.tsTable(oid)(WRITE) = tid				// SHOULD NEVER BE HERE
 		 } // if		
-		 else{		
+		 else{								// i.e. - we don't have the lock yet
 		 		 writeLock.lock()				// else lock before writing
 		 		 VDB.write(tid,oid,value)
 		 		 writeLocks += (oid -> writeLock)		// add the write lock to your set
-				 VDB.tsTable(oid)(1) = tid
+				 VDB.tsTable(oid)(WRITE) = tid
 		 } // else
 	     } // if
 	     else VDB.write(tid,oid,value)    
