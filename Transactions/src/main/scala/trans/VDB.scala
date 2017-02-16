@@ -1,7 +1,9 @@
-/*A
+/*
 	TODO:
 		find a thread safe collection to use
 		implement the deadlock checker
+
+		
 		implement restart after roll back
 		rigorously test roll back
 		rigorously test 2PL and TSO implementations
@@ -85,7 +87,7 @@ object VDB
     type LogRec = Tuple4 [Int, Int, Record, Record]      // log record type (tid, oid, v_old, v_new)
 
     private val DEBUG         = true                     // debug flag
-    private val CSR_TESTING   = true 
+    private val CSR_TESTING   = false 
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
