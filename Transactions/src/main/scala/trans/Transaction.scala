@@ -40,6 +40,9 @@ object Transaction
 
 import Transaction._
 
+import scalation.graphalytics.Graph
+import scalation.graphalytics.Cycle.hasCycle
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` class
   *  @param sch  the schedule/order of operations for this transaction.
@@ -47,43 +50,37 @@ import Transaction._
 class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 {
     private val DEBUG       = true						// debug flag
-private val tid         = nextCount ()        		    		// tarnsaction identifier
-private var rwSet       = Map[Int, Array[Int]]()		    		// the read write set
-private var numOps      = 0	   	 		    			// [ oid, (num_reads,num_writes)]
-private var contracting = false						// keeps track of which 2PL phase we're in (contracting or expanding)
-private var readLocks   = Map [Int, ReentrantReadWriteLock.ReadLock ]()	// set of read locks we haven't unlocked yet and the oid they apply to
-private var writeLocks  = Map [Int, ReentrantReadWriteLock.WriteLock]() 	// set of write locks we haven't unlocked yet and the oid they apply to
-
-private val READ        = 0
+    val tid         = nextCount ()        		    		// tarnsaction identifier
+    private var rwSet       = Map[Int, Array[Int]]()		    		// the read write set : [oid, (num_reads, num_writes)]
+    private var contracting = false						// keeps track of which 2PL phase we're in (contracting or expanding)
+    private var readLocks   = Map [Int, ReentrantReadWriteLock.ReadLock ]()	// (oid -> readLock)  read locks we haven't unlocked yet
+    private var writeLocks  = Map [Int, ReentrantReadWriteLock.WriteLock]() 	// (oid -> writeLock) write locks we haven't unlocked yet 
+    private val READ        = 0
     private val WRITE       = 1
-    private val ConcurrencyFlag = concurrency
-    private var ROLLBACK = false; private var thisSch= sch
+    private val _2PL        = 0
+    private val TSO         = 1
+    private var ROLLBACK    = false
+
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Run this transaction by executing its operations.
       */
     override def run ()
     {
-        fillReadWriteSet()
-        begin ()
-
-
+    	if(concurrency == _2PL) fillReadWriteSet()
         breakable{
-
-
 		for (i <- sch.indices) {
-            if (!ROLLBACK) {
-                val (op, tid, oid) = sch(i)
-                //if(DEBUG) println (sch(i))
-                if (op == r) read(oid)
-                else write(oid, VDB.str2record(sch(i).toString))
-            } // if
-            else break
-        }
-            // for
-	}
+		    //println(s"${sch(i)}")
+	    	    if(!ROLLBACK){
+			val (op,tid,oid) = sch(i)
+            	    	//if(DEBUG) println (sch(i))
+            	    	if (op == r) read (oid)
+            	    	else         write (oid, VDB.str2record (sch(i).toString))
+	    	    } // if
+	    	    else break   
+        	} // for
+	} // breakable
         if(!ROLLBACK) commit ()
-
     } // run
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -91,21 +88,20 @@ private val READ        = 0
       */
     def fillReadWriteSet()
     {
-        for(i <- sch.indices){
-            val op = sch(i)
-            if (rwSet contains op._3){
-                if( op._1 == r ) rwSet(op._3)(READ) += 1		//increment the read value for this object in the readWriteSet
-                else             rwSet(op._3)(WRITE) += 1		//increment the write value
-            } // if
-            else{
-                var tup = Array.fill(2)(0)				//add a new member to the read write set
-                if( op._1 == r ) tup(READ) = 1				//make it a read member
-                else             tup(WRITE) = 1				//make it a write member
-
-                rwSet += (op._3 -> tup)
-            } // else
-            numOps += 1
-        }// for
+	for(i <- sch.indices){
+	      val (op,tid,oid) = sch(i)
+	      if (rwSet contains oid){
+	      	 if( op == r ) rwSet(oid)(READ)  += 1		//increment the read value for this object in the readWriteSet
+		 else          rwSet(oid)(WRITE) += 1		//increment the write value
+	      } // if
+	      else{
+		var tup = Array.fill(2)(0)				//add a new member to the read write set
+		if( op == r ) tup(READ) = 1				//make it a read member
+		else          tup(WRITE) = 1				//make it a write member
+		
+		rwSet += (oid -> tup) 
+	      } // else
+	}// for
     } // fillReadWriteSet
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -118,9 +114,11 @@ private val READ        = 0
         //else readTSO(oid)
         println("reading")
         var lock = new ReentrantReadWriteLock()
+        var waitingTid =0
         var ret   = Array.ofDim[Byte](128)
         LockTable.synchronized{
-            lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
+            lock  = LockTable.lock( oid,tid )				// get the rrwl associated with this object from the lock table
+            waitingTid = LockTable.table.getOrElse(oid,(null,-1))._2
         }
 
         var prime_lock = lock.writeLock()				// get the writeLock associated with the rrwl
@@ -128,12 +126,29 @@ private val READ        = 0
             ret = (VDB.read (tid,oid))._1
         } // if
         else if( (rwSet contains oid) && (rwSet(oid)(1)>0) ){		// if you will need to write this item in the future, use the writeLock for read
+
+            VDB.ch(tid)+= waitingTid
+            val graph = new Graph(VDB.ch)                       //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
+            if (hasCycle(graph)) {
+                VDB.ch(tid)= VDB.ch(tid).empty
+                rollback()
+            }
+
             prime_lock.lock()	     					// try to lock the write lock
+            LockTable.table(oid)=(lock,tid)
             ret = (VDB.read (tid,oid))._1
             writeLocks += (oid -> prime_lock)
         } // else if
         else{
             var prime_lock2 = lock.readLock()			// switch to the read lock b/c you don't need to write in the future
+            if (lock.isWriteLocked) {
+                VDB.ch(tid)+= waitingTid
+                val graph = new Graph(VDB.ch)
+                if (hasCycle(graph)) {
+                    VDB.ch(tid)= VDB.ch(tid).empty
+                    rollback()
+                }
+            }
             prime_lock2.lock() 					// try to lock the read lock
             ret = (VDB.read(tid,oid))._1
             readLocks += (oid -> prime_lock2)
@@ -148,40 +163,6 @@ private val READ        = 0
     } // read
 
 
-    //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /** Unlock any read locks this transaction may own.
-      */
-    def releaseReadLocks()
-    {
-        for( lock <- readLocks ){
-
-            lock._2.unlock()						//unlock the lock
-
-            LockTable.checkLock(lock._1)				//remove the lock from the lock table if necessary
-        }
-    } // releaseReadLocks
-
-
-    this.synchronized{
-
-    }
-    //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /** Unlock any write locks this transaction may own.
-      */
-    def releaseWriteLocks()
-    {
-        for( lock <- writeLocks ){
-            if (lock._2.isHeldByCurrentThread)
-
-            {
-                lock._2.unlock()						//unlock the lock
-
-                LockTable.checkLock(lock._1)
-
-            }			//remove the lock from the lock table if necessary
-        }
-    } // releaseWriteLocks
-
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Write the record with the given 'oid'.
       *  @param oid    the object/record being written
@@ -190,31 +171,28 @@ private val READ        = 0
     def write2PL (oid: Int, value: VDB.Record)
     {
 
-        var lock = LockTable.lock(oid)
+        var lock = LockTable.lock(oid,tid)
+        var waitingTid = LockTable.table.getOrElse(oid,(null,-1))._2
         var primeLock = lock.writeLock()
+
         if(primeLock.isHeldByCurrentThread) VDB.write(tid, oid, value)
         else{
-
+            VDB.ch(tid)+= waitingTid
+            val graph = new Graph(VDB.ch)
+            if (hasCycle(graph)) {                                                      //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
+                VDB.ch(tid)= VDB.ch(tid).empty
+                rollback()
+            }
             primeLock.lock()
+            LockTable.table(oid)=(lock,tid)
             writeLocks += (oid -> primeLock)
             VDB.write(tid, oid, value)
         }
         rwSet(oid)(WRITE) -= 1
         if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed
                 (rwSet(oid)(WRITE) == 0) ) rwSet -= oid
-
-    } // write
-
-    def deadlockChecker() ={
-
     }
-    def getsch (): Schedule ={
-
-    this.sch
-}
-    def getRollback(): Boolean={
-        this.ROLLBACK
-    }
+    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'.
       * Add Strict Timestamp Ordering
@@ -222,33 +200,35 @@ private val READ        = 0
       */
     def readTS (oid: Int): VDB.Record =
     {
-        var read_TS = VDB.tsTable(oid)(1)
+	var rec		= Array.ofDim[Byte](128)
+	val writeTS 	= VDB.tsTable(oid)(1)
+	val readTS	= VDB.tsTable(oid)(0)
+	val lock 	= LockTable.lock(oid, tid)
+	val readLock 	= lock.readLock()
 
-        if (tid >= read_TS) {
-            if (tid > VDB.tsTable(oid)(1)) {
-                var lock = new ReentrantReadWriteLock()
-
-                println("reading")
-                VDB.tsTable(oid)(1) = tid
-                LockTable.synchronized{
-                    lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
-                }
-                var prime_lock = lock.readLock()
-                prime_lock.lock()
-
-                readLocks += (oid -> prime_lock)
-
-                return (VDB.read(tid, oid))._1
-            }
-            else {
-                return (VDB.read(tid, oid))._1
-            }
-        }
-        else{
-                rollback()
-                null
-            } // else
-    } // read
+        if (writeTS <= tid){								// check if write_TS(X)<=TS(T), then we get to try to read  
+		if(writeTS < tid){							// check for STSO, then use locks
+			if( writeLocks contains oid ){					// read 'em if you got 'em
+			    rec = VDB.read(tid,oid)._1
+			    if(readTS < tid) VDB.tsTable(oid)(0) = tid
+			} // if				
+			else{								// THIS SHOULD HAPPEN
+	    			readLock.lock()             // lock the readLock
+                LockTable.table(oid)=(lock,tid)
+				rec = VDB.read(tid, oid)._1
+				if(readTS < tid) VDB.tsTable(oid)(0) = tid
+				readLock.unlock()
+			} // else
+		} // if
+            	else {
+			rec = VDB.read(tid,oid)._1
+			if(readTS < tid) VDB.tsTable(oid)(0) = tid
+		}
+	}
+        else rollback()									// rollback if the current TS is bigger than write_TS,
+	     										// which means some yonger Tj has written oid  	    
+	rec
+    } // readTSO
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Write the record with the given 'oid'.
@@ -258,31 +238,62 @@ private val READ        = 0
       */
     def writeTSO (oid: Int, value: VDB.Record)
     {
-        if (tid >= VDB.tsTable(oid)(1) && tid >= VDB.tsTable(oid)(0))         //check if current TSO >=write_TS, require the write lock
-        {
+	val readTS  = VDB.tsTable(oid)(READ)
+	val writeTS = VDB.tsTable(oid)(WRITE)
+        if(tid < readTS || tid < writeTS) rollback()			
+	else {
+	     if( tid > writeTS ){						// check for STSO
+	     	 val lock      = LockTable.lock(oid, tid)
+		 val writeLock = lock.writeLock()
+		 if( writeLocks contains oid ) {				// SHOLDN'T HAPPEN write 'em if you got 'em
+		     VDB.write(tid,oid,value)  					// writeLocks contains oid => we were last to write to this object => writeTS == tid
+		     VDB.tsTable(oid)(WRITE) = tid				// SHOULD NEVER BE HERE
+		 } // if		
+		 else{								// i.e. - we don't have the lock yet
+		 		 writeLock.lock()				// else lock before writing
+                 LockTable.table(oid)=(lock,tid)
+		 		 VDB.write(tid,oid,value)
+		 		 writeLocks += (oid -> writeLock)		// add the write lock to your set
+				 VDB.tsTable(oid)(WRITE) = tid
+		 } // else
+	     } // if
+	     else VDB.write(tid,oid,value)    
+	}
+	
+    } // writeTSO
 
-            VDB.tsTable(oid)(1) = tid
-            var lock = LockTable.lock(oid)
-            var primeLock = lock.writeLock()
-            if(primeLock.isHeldByCurrentThread) VDB.write(tid, oid, value)
-            else{
-                primeLock.lock()
-                writeLocks += (oid -> primeLock)
-                VDB.write(tid, oid, value)
-            }
 
-        }
-        else                                                       // else roll back since some younger transaton has written the oid
-        {
-            rollback()
-        }
-    } // write
+    //::
+    /*
+    **/
+    def releaseReadLocks()
+    {
+	println(s"releasing read locks for tid: $tid")
+	for(i <- readLocks.keys) {
+	      println(s"releasing readLock for oid: ${i}")
+	      readLocks(i).unlock()
+	} // for
+    }
+
+
+    //::
+    /*
+    **/
+    def releaseWriteLocks()
+    {
+	println(s"releasing writeLocks for tid: $tid")
+	for(i <- writeLocks.keys) {
+	      println(s"releasing writeLock for oid: ${i}")
+	      writeLocks(i).unlock()
+	} // for
+    }
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'. Redirect to different concurrency by ConcurrencyFlag setting
       *  @param oid  the object/record being read
       */
     def read (oid: Int) :VDB.Record ={
-        if (ConcurrencyFlag==1) readTS(oid)
+        if (concurrency == TSO) readTS(oid)
         else read2PL(oid)
     }
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -291,9 +302,10 @@ private val READ        = 0
       *  @param value  the new value for the the record
       */
     def write (oid:Int, value:VDB.Record  ) ={
-        if (ConcurrencyFlag ==1 ) writeTSO(oid, value)
+        if (concurrency == TSO ) writeTSO(oid, value)
         else write2PL (oid, value)
     }
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Begin this transaction.
       */
@@ -307,25 +319,25 @@ private val READ        = 0
       */
     def commit ()
     {
-
         VDB.commit (tid)
-        if (DEBUG) println (VDB.logBuf)
-
-        releaseReadLocks()
-        releaseWriteLocks()
-
+        //if (DEBUG) println (VDB.logBuf)
+	releaseReadLocks()
+	releaseWriteLocks()
     } // commit
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Rollback this transaction.
       */
     def rollback ()
-    {   ROLLBACK= true
+    {
+	println("rollback...")
+	ROLLBACK = true
         VDB.rollback (tid)
         releaseReadLocks()
         releaseWriteLocks()
-        var t = new Transaction(sch)
-        t.start()
+	val newT = new Transaction(this.sch, this.concurrency)
+	newT.start()
+
     } // rollback
 
     
@@ -335,104 +347,48 @@ object waitGraph{
 
 
 }
- class waitGraph  extends Thread{
-     import scalation.graphalytics.Graph
-     import scala.collection.immutable.Set
-     import scalation.graphalytics.Cycle.hasCycle
+class waitGraph  extends Thread {
+
+    import scalation.graphalytics.Graph
+    import scala.collection.immutable.Set
+    import scalation.graphalytics.Cycle.hasCycle
+
     var k = "dong"
-   //  var waitGraph =Array.ofDim[Set[Int]](nTrans)
-   //  for (i <- waitGraph.indices) waitGraph(i) = Set[Int]()
+    //  var waitGraph =Array.ofDim[Set[Int]](nTrans)
+    //  for (i <- waitGraph.indices) waitGraph(i) = Set[Int]()
 
-   //  var g = new Graph(waitGraph)
+    //  var g = new Graph(waitGraph)
 
-     override def run() {
+    override def run() {
 
-         var lock = new adjustLock()
-         lock.writeLock().lock()
+        var lock = new adjustLock()
+        lock.writeLock().lock()
 
-         println(lock.getOwner.getClass.getDeclaredField("k").get(this))
-
-
-     }
+        println(lock.getOwner.getClass.getDeclaredField("k").get(this))
 
 
-
-
-
-
-
-}
-
+    }}
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `TransactionTest` object is used to test the `Transaction` class.
-  *  > run-main trans.TransactionTest
+  * > run-main trans.TransactionTest
   */
-object TransactionTest extends App
-{   import scala.util.Random
+object TransactionTest extends App {
     private val _2PL = 0
     private val TSO = 1
-    private val transactionNum =20
-    private val opPerTran = 23
-    val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
-    val t2 = new Transaction (new Schedule (List ( ('r', 1, 0), ('r', 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
+    private val numTrans = 20
+    private val numOps   = 20
+    private val numObjs  = 20
+    
+    //val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
+    //val t2 = new Transaction (new Schedule (List ( ('r', 1, 0), ('r', 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
 
 
     //generate transactions
-    val transactions = Array.ofDim[Transaction](50)
-    for (i <-0 to transactionNum)
-    {
-        var sched = List[(Char,Int,Int)]()
-        for (j <- 0 to opPerTran)
-        {   var k='x'
-            if ( Random.nextDouble()>0.5)
-            {k='r'}
-            else
-            {k = 'w'}
 
-            val b=Random.nextInt(10)
-            sched =  (k,0,b) :: sched
-        }
-        transactions(i) =new Transaction (new Schedule (sched),TSO)
-
-    }
-
+    val transactions = Array.ofDim[Transaction](numTrans)
+    for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),TSO)
     VDB.initCache()
-    for (i<-0 to 20)
-        transactions(i).start()
-
-    /// generate new transaction if rollback
-    var rollback = new ArrayBuffer[Int]
-    for (i<-0 to 20)
-        if  (transactions(i).getRollback()) {
-            rollback += i
-
-        }
-    val r = Array.ofDim[Transaction](rollback.size)
-    for (i<-0 to rollback.size){
-        if (rollback.size==0) println("no rollback")
-        else r(i) = new Transaction( transactions(rollback(i)).getsch(),TSO)
-
-    }
-
-
-    /* for (t1<-transactions){
-         if (t1.ROLLBACK==true) {
-         val x = new Transaction (t1.getsch())
-         x.start()}
-     }*/
+    for (i <- transactions.indices) transactions(i).start()
 
 
 } // TransactionTest object
-
-object textAdjustlock extends App{
-
-    var t1 = new waitGraph()
-    var t2 = new waitGraph()
-
-    t1.start()
-    t2.start()
-    var test = new adjustLock()
-    test.writeLock().lock()
-    println(test.getOwner.getName)
-
-}
