@@ -38,26 +38,28 @@ import Operation._
  object LockTable
  {
 
-	private val table = Map[Int, ReentrantReadWriteLock] ()			// Map used to access locks for each object
+	 val table = Map[Int, (ReentrantReadWriteLock, Int)] ().withDefaultValue((null,-1))			// Map used to access locks for each object
 		    	    	     			     			// (oid => lock)
 	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/** Method to retrieve a WriteLock for this object. Creates a lock
 	 *  if there is not a lock associated with this object in the lock
 	 *  table.
-	 *  @ param tid  The integer id for the transaction trying to lock the object
+	 *
 	 *  @ param oid  The integer id for the object the transaction is trying to lock
+	  * @ param tid  The integer id for the transaction trying to lock the object
 	 */
 
-	def lock(oid: Int): ReentrantReadWriteLock = 
+	def lock(oid: Int,tid: Int): ReentrantReadWriteLock =
 	{
 		this.synchronized{
-			var lock = table.get(oid)					// Retrieve the RRWL associated with the object
-			if( lock == None ){						// in the lock table
-				table += (oid -> new ReentrantReadWriteLock(true))		// with the object in the table
-				lock = table.get(oid)
+
+			var lock = table.getOrElse(oid,(null,-1))	._1		// Retrieve the RRWL associated with the object
+			if( lock == null ){								// in the lock table
+				table += (oid -> (new ReentrantReadWriteLock(true),tid))		// with the object in the table
+				lock = table(oid)._1
 
 			}// if
-			lock.get							// Return the WriteLock for this RRWL
+			lock							// Return the WriteLock for this RRWL
 
 		}
 
@@ -73,7 +75,7 @@ import Operation._
 	{
 		this.synchronized {
 		  if(table contains oid){
-		  	   var lock = table(oid)
+		  	   var lock = table(oid)._1
       		  	   if( !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
 		  }//if 
 		}
@@ -116,6 +118,11 @@ object VDB
 
     private var lastCommit = -1
 
+
+	val LOCK_CHECK_BUFFER   = 500
+	val ch = Array.ofDim[Set[Int]](LOCK_CHECK_BUFFER)
+	for (i <- ch.indices) ch(i) = Set[Int]()
+	//ch(i) += j      i wati for j
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
      */
@@ -555,8 +562,8 @@ object VDBTest extends App
 
 object VDBTest2 extends App
 {
- 	val OPS_PER_TRANSACTION  = 15
-    	val TOTAL_TRANSACTIONS   = 5
+ 	val OPS_PER_TRANSACTION  = 20
+	val TOTAL_TRANSACTIONS =30
     	val TOTAL_OBJECTS	 = 480
 
 	PDB.initStore()
