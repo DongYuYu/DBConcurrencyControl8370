@@ -40,6 +40,9 @@ object Transaction
 
 import Transaction._
 
+import scalation.graphalytics.Graph
+import scalation.graphalytics.Cycle.hasCycle
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` class
   *  @param sch  the schedule/order of operations for this transaction.
@@ -111,9 +114,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
         //else readTSO(oid)
         println("reading")
         var lock = new ReentrantReadWriteLock()
+        var waitingTid =0
         var ret   = Array.ofDim[Byte](128)
         LockTable.synchronized{
-            lock  = LockTable.lock( oid )				// get the rrwl associated with this object from the lock table
+            lock  = LockTable.lock( oid,tid )				// get the rrwl associated with this object from the lock table
+            waitingTid = LockTable.table.getOrElse(oid,(null,-1))._2
         }
 
         var prime_lock = lock.writeLock()				// get the writeLock associated with the rrwl
@@ -121,12 +126,29 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
             ret = (VDB.read (tid,oid))._1
         } // if
         else if( (rwSet contains oid) && (rwSet(oid)(1)>0) ){		// if you will need to write this item in the future, use the writeLock for read
+
+            VDB.ch(tid)+= waitingTid
+            val graph = new Graph(VDB.ch)                       //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
+            if (hasCycle(graph)) {
+                VDB.ch(tid)= VDB.ch(tid).empty
+                rollback()
+            }
+
             prime_lock.lock()	     					// try to lock the write lock
+            LockTable.table(oid)=(lock,tid)
             ret = (VDB.read (tid,oid))._1
             writeLocks += (oid -> prime_lock)
         } // else if
         else{
             var prime_lock2 = lock.readLock()			// switch to the read lock b/c you don't need to write in the future
+            if (lock.isWriteLocked) {
+                VDB.ch(tid)+= waitingTid
+                val graph = new Graph(VDB.ch)
+                if (hasCycle(graph)) {
+                    VDB.ch(tid)= VDB.ch(tid).empty
+                    rollback()
+                }
+            }
             prime_lock2.lock() 					// try to lock the read lock
             ret = (VDB.read(tid,oid))._1
             readLocks += (oid -> prime_lock2)
@@ -149,12 +171,20 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     def write2PL (oid: Int, value: VDB.Record)
     {
 
-        var lock = LockTable.lock(oid)
+        var lock = LockTable.lock(oid,tid)
+        var waitingTid = LockTable.table.getOrElse(oid,(null,-1))._2
         var primeLock = lock.writeLock()
+
         if(primeLock.isHeldByCurrentThread) VDB.write(tid, oid, value)
         else{
-
+            VDB.ch(tid)+= waitingTid
+            val graph = new Graph(VDB.ch)
+            if (hasCycle(graph)) {                                                      //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
+                VDB.ch(tid)= VDB.ch(tid).empty
+                rollback()
+            }
             primeLock.lock()
+            LockTable.table(oid)=(lock,tid)
             writeLocks += (oid -> primeLock)
             VDB.write(tid, oid, value)
         }
@@ -173,7 +203,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	var rec		= Array.ofDim[Byte](128)
 	val writeTS 	= VDB.tsTable(oid)(1)
 	val readTS	= VDB.tsTable(oid)(0)
-	val lock 	= LockTable.lock(oid)
+	val lock 	= LockTable.lock(oid, tid)
 	val readLock 	= lock.readLock()
         if (writeTS <= tid){								// check if write_TS(X)<=TS(T), then we get to try to read  
 		if(writeTS < tid){							// check for STSO, then use locks
@@ -182,8 +212,9 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 			    if(readTS < tid) VDB.tsTable(oid)(0) = tid
 			} // if				
 			else{								// THIS SHOULD HAPPEN
-	    			readLock.lock()						// lock the readLock
-				rec = VDB.read(tid, oid)._1
+	    			readLock.lock()             // lock the readLock
+                		LockTable.table(oid)=(lock,tid)
+				rec = VDB.read(tid, oid)._1 
 				if(readTS < tid) VDB.tsTable(oid)(0) = tid
 				readLock.unlock()
 			} // else
@@ -211,7 +242,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
         if(tid < readTS || tid < writeTS) rollback()			
 	else {
 	     if( tid > writeTS ){						// check for STSO
-	     	 val lock      = LockTable.lock(oid)
+	     	 val lock      = LockTable.lock(oid, tid)
 		 val writeLock = lock.writeLock()
 		 if( writeLocks contains oid ) {				// SHOLDN'T HAPPEN write 'em if you got 'em
 		     VDB.write(tid,oid,value)  					// writeLocks contains oid => we were last to write to this object => writeTS == tid
@@ -219,6 +250,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		 } // if		
 		 else{								// i.e. - we don't have the lock yet
 		 		 writeLock.lock()				// else lock before writing
+                 		 LockTable.table(oid)=(lock,tid)
 		 		 VDB.write(tid,oid,value)
 		 		 writeLocks += (oid -> writeLock)		// add the write lock to your set
 				 VDB.tsTable(oid)(WRITE) = tid
@@ -310,13 +342,38 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     
 } // Transaction class
 
+object waitGraph{
 
+
+}
+class waitGraph  extends Thread {
+
+    import scalation.graphalytics.Graph
+    import scala.collection.immutable.Set
+    import scalation.graphalytics.Cycle.hasCycle
+
+    var k = "dong"
+    //  var waitGraph =Array.ofDim[Set[Int]](nTrans)
+    //  for (i <- waitGraph.indices) waitGraph(i) = Set[Int]()
+
+    //  var g = new Graph(waitGraph)
+
+    def run()
+    {
+
+        var lock = new adjustLock()
+        lock.writeLock().lock()
+
+        println(lock.getOwner.getClass.getDeclaredField("k").get(this))
+
+    } // run
+}
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `TransactionTest` object is used to test the `Transaction` class.
-  *  > run-main trans.TransactionTest
+  * > run-main trans.TransactionTest
   */
-object TransactionTest extends App
-{   
+
+object TransactionTest extends App {
     private val _2PL = 0
     private val TSO = 1
     private val numTrans = 20
