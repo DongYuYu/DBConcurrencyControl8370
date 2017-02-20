@@ -1,4 +1,4 @@
-/*A
+/*AA
 implement PDB.init_store
 */
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -67,6 +67,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     override def run ()
     {
+	begin()
     	if(concurrency == _2PL) fillReadWriteSet()
         breakable{
 		for (i <- sch.indices) {
@@ -110,11 +111,9 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def read2PL (oid: Int): VDB.Record =
     {
-        //if(concurrency ==2PL) read2PL(oid)
-        //else readTSO(oid)
         println("reading")
         var lock = new ReentrantReadWriteLock()
-        var waitingTid =0
+        var waitingTid = 0
         var ret   = Array.ofDim[Byte](128)
         LockTable.synchronized{
             lock  = LockTable.lock( oid,tid )				// get the rrwl associated with this object from the lock table
@@ -179,14 +178,16 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
         else{
             VDB.ch(tid)+= waitingTid
             val graph = new Graph(VDB.ch)
-            if (hasCycle(graph)) {                                                      //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
+            if (hasCycle(graph)) {                                      //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
                 VDB.ch(tid)= VDB.ch(tid).empty
                 rollback()
-            }
-            primeLock.lock()
-            LockTable.table(oid)=(lock,tid)
-            writeLocks += (oid -> primeLock)
-            VDB.write(tid, oid, value)
+            } // if
+            else {
+	    	 primeLock.lock()
+            	 LockTable.table(oid)=(lock,tid)
+            	 writeLocks += (oid -> primeLock)
+            	 VDB.write(tid, oid, value)
+	    } //  else
         }
         rwSet(oid)(WRITE) -= 1
         if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed
@@ -200,32 +201,28 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def readTS (oid: Int): VDB.Record =
     {
-	var rec		= Array.ofDim[Byte](128)
-	val writeTS 	= VDB.tsTable(oid)(1)
-	val readTS	= VDB.tsTable(oid)(0)
-	val lock 	= LockTable.lock(oid, tid)
-	val readLock 	= lock.readLock()
-        if (writeTS <= tid){								// check if write_TS(X)<=TS(T), then we get to try to read  
-		if(writeTS < tid){							// check for STSO, then use locks
-			if( writeLocks contains oid ){					// read 'em if you got 'em
-			    rec = VDB.read(tid,oid)._1
-			    if(readTS < tid) VDB.tsTable(oid)(0) = tid
-			} // if				
-			else{								// THIS SHOULD HAPPEN
-	    			readLock.lock()             // lock the readLock
-                		LockTable.table(oid)=(lock,tid)
-				rec = VDB.read(tid, oid)._1 
-				if(readTS < tid) VDB.tsTable(oid)(0) = tid
-				readLock.unlock()
-			} // else
-		} // if
-            	else {
+	var rec	     = Array.ofDim[Byte](128)
+	val lock     = LockTable.lock(oid, tid)
+	val readLock = lock.readLock()
+	VDB.tsTable.synchronized{
+		val writeTS 	= VDB.tsTable(oid)(1)
+		val readTS	= VDB.tsTable(oid)(0)
+		if(writeTS > tid) rollback()						// rollback if a younger transaction already wrote to this object 	    
+		else if ( writeTS < tid ){						// else check for STSO
+		     	println(s"$tid wants to readLock $oid")
+			readLock.lock()
+			println(s"$tid got to readLock $oid")
+                	LockTable.table(oid)=(lock,tid)
+			rec = VDB.read(tid, oid)._1 
+			if(readTS < tid) VDB.tsTable(oid)(0) = tid
+			readLock.unlock()
+			println(s"$tid unlocked $oid")
+		} // else if
+		else{									// otherwise you must own the rightLock for this obj already
 			rec = VDB.read(tid,oid)._1
 			if(readTS < tid) VDB.tsTable(oid)(0) = tid
-		}
-	}
-        else rollback()									// rollback if the current TS is bigger than write_TS,
-	     										// which means some yonger Tj has written oid  	    
+		} //  else
+	} // synchornize
 	rec
     } // readTSO
 
@@ -237,30 +234,26 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def writeTSO (oid: Int, value: VDB.Record)
     {
-	val readTS  = VDB.tsTable(oid)(READ)
-	val writeTS = VDB.tsTable(oid)(WRITE)
-        if(tid < readTS || tid < writeTS) rollback()			
-	else {
-	     if( tid > writeTS ){						// check for STSO
-	     	 val lock      = LockTable.lock(oid, tid)
-		 val writeLock = lock.writeLock()
-		 if( writeLocks contains oid ) {				// SHOLDN'T HAPPEN write 'em if you got 'em
-		     VDB.write(tid,oid,value)  					// writeLocks contains oid => we were last to write to this object => writeTS == tid
-		     VDB.tsTable(oid)(WRITE) = tid				// SHOULD NEVER BE HERE
-		 } // if		
-		 else{								// i.e. - we don't have the lock yet
-		 		 writeLock.lock()				// else lock before writing
-                 		 LockTable.table(oid)=(lock,tid)
-		 		 VDB.write(tid,oid,value)
-		 		 writeLocks += (oid -> writeLock)		// add the write lock to your set
-				 VDB.tsTable(oid)(WRITE) = tid
-		 } // else
-	     } // if
-	     else VDB.write(tid,oid,value)    
-	}
-	
-    } // writeTSO
+	VDB.tsTable.synchronized{
+		val readTS  = VDB.tsTable(oid)(READ)
+		val writeTS = VDB.tsTable(oid)(WRITE)
 
+		if     ( tid < readTS || tid < writeTS) rollback()				// rollback if a younger transaction already got to this object
+		else if(        tid > writeTS         ){					// else check for STSO
+	     	     val lock = LockTable.lock(oid,tid)
+		     val writeLock = lock.writeLock()
+		     println(s"$tid wants to writeLock $oid")
+		     writeLock.lock()
+		     println(s"$tid got to writeLock $oid")
+		     LockTable.table(oid) = (lock,tid)						
+		     VDB.write(tid,oid,value)					
+		     writeLocks += (oid -> writeLock)						
+		     VDB.tsTable(oid)(WRITE) = tid
+		} // else if									// otherwise you must own the writeLock for this obj
+		else VDB.write(tid,oid,value)
+	} // synchornized
+    } // writeTSO
+    
 
     //::
     /*
@@ -358,7 +351,7 @@ class waitGraph  extends Thread {
 
     //  var g = new Graph(waitGraph)
 
-    def run()
+    override def run()
     {
 
         var lock = new adjustLock()
