@@ -80,6 +80,7 @@ import Operation._
 		  }//if 
 		}
 	}
+
  }
 
 class adjustLock extends ReentrantReadWriteLock {
@@ -119,9 +120,12 @@ object VDB
     private var lastCommit = -1
 
 
-	val LOCK_CHECK_BUFFER   = 500
-	val ch = Array.ofDim[Set[Int]](LOCK_CHECK_BUFFER)
+	val LOCK_CHECK_BUFFER   = 50
+	var ch = Array.ofDim[Set[Int]](LOCK_CHECK_BUFFER)
+	//var ch =ArrayBuffer[Set[Int]]
 	for (i <- ch.indices) ch(i) = Set[Int]()
+//	for (i<- 0 until ch.size)
+//	println("test"+ch(i).toString())
 	//ch(i) += j      i wati for j
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
@@ -221,7 +225,8 @@ object VDB
 		if (map.nonEmpty){
 			val num = Random.nextInt(map.size)
 			val key = map.keys.toSeq
-			var num1 = key(num)
+//			var num1 = key(num)
+			var num1 = key(1)
 			val v = map.getOrElse(num1,0)
 			val elem = (num1, v)
 			//val elem = map.last
@@ -562,9 +567,9 @@ object VDBTest extends App
 
 object VDBTest2 extends App
 {
- 	val OPS_PER_TRANSACTION  = 20
-	val TOTAL_TRANSACTIONS =30
-    	val TOTAL_OBJECTS	 = 480
+ 	val OPS_PER_TRANSACTION  = 10
+	val TOTAL_TRANSACTIONS =10
+    	val TOTAL_OBJECTS	 = 10
 
 	PDB.initStore()
    	VDB.initCache ()
@@ -581,7 +586,8 @@ object VDBTest2 extends App
 	//var raf = new RandomAccessFile("sched_file","rw")
 
 	val sched = new Schedule( VDB.SCHEDULE_TRACKER.toList )
-	println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
+	println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}")
+	VDB.printLogBuf()
 	System.exit(0)
 } // VDBTest2
 

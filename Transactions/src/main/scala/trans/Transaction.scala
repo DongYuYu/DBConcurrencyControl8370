@@ -47,7 +47,7 @@ import scalation.graphalytics.Cycle.hasCycle
 /** The `Transaction` class
   *  @param sch  the schedule/order of operations for this transaction.
   */
-class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
+class Transaction (sch: Schedule, concurrency: Int =0, roll: Int= (-1)) extends Thread
 {
     private val DEBUG       = true						// debug flag
     val tid         = nextCount ()        		    		// tarnsaction identifier
@@ -60,6 +60,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     private val _2PL        = 0
     private val TSO         = 1
     private var ROLLBACK    = false
+    if (roll!= -1) println ("this tid ="+tid.toString+"rollback by"+roll.toString+"rollbacknow"+ROLLBACK.toString)
 
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -80,7 +81,15 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	    	    else break   
         	} // for
 	} // breakable
-        if(!ROLLBACK) commit ()
+        if(!ROLLBACK) {
+            commit()
+            println("---------------------------------------/n------------------------------/n-------------------/n--------------------------------------------------"+tid.toString)
+        }
+        else{
+        //   println("------------------------------------"+tid.toString)
+        //    Thread.sleep(2000)
+
+        }
     } // run
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -112,7 +121,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     {
         //if(concurrency ==2PL) read2PL(oid)
         //else readTSO(oid)
-        println("reading")
+        println("prereading"+tid+"readsoid"+oid)
         var lock = new ReentrantReadWriteLock()
         var waitingTid =0
         var ret   = Array.ofDim[Byte](128)
@@ -125,33 +134,60 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
         if( prime_lock.isHeldByCurrentThread() ){			// if you already hold the write lock, start reading
             ret = (VDB.read (tid,oid))._1
         } // if
-        else if( (rwSet contains oid) && (rwSet(oid)(1)>0) ){		// if you will need to write this item in the future, use the writeLock for read
 
+        else if( (rwSet contains oid) && (rwSet(oid)(1)>0) ){		// if you will need to write this item in the future, use the writeLock for read
+            if (waitingTid!=tid)
             VDB.ch(tid)+= waitingTid
             val graph = new Graph(VDB.ch)                       //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
             if (hasCycle(graph)) {
-                VDB.ch(tid)= VDB.ch(tid).empty
+                println("printGby"+tid)
+                graph.printG()
+                println("-----------------------------"+LockTable.table.toString())
+               // VDB.ch(tid)-= waitingTid
+                VDB.ch(tid) = VDB.ch(tid).empty
+                for(i <- 0 to VDB.ch.size-1) VDB.ch(i) -= tid
                 rollback()
-            }
 
-            prime_lock.lock()	     					// try to lock the write lock
-            LockTable.table(oid)=(lock,tid)
-            ret = (VDB.read (tid,oid))._1
-            writeLocks += (oid -> prime_lock)
+                //VDB.ch=VDB.ch.slice(0,tid)++VDB.ch.takeRight(VDB.ch.size-tid-1)
+                //VDB.ch(tid)= VDB.ch(tid).empty
+            }
+            else {
+                prime_lock.lock()                            // try to lock the write lock
+                VDB.ch(tid)-= waitingTid
+                LockTable.table(oid) = (lock, tid)
+                ret = (VDB.read(tid, oid))._1
+                writeLocks += (oid -> prime_lock)
+            }
         } // else if
         else{
             var prime_lock2 = lock.readLock()			// switch to the read lock b/c you don't need to write in the future
             if (lock.isWriteLocked) {
+                if (waitingTid!=tid)
                 VDB.ch(tid)+= waitingTid
                 val graph = new Graph(VDB.ch)
                 if (hasCycle(graph)) {
-                    VDB.ch(tid)= VDB.ch(tid).empty
+                    println("printGby"+tid)
+                    graph.printG()
+                    println("-----------------------------"+LockTable.table.toString())
+        //            VDB.ch(tid)-= waitingTid
+                    VDB.ch(tid) = VDB.ch(tid).empty
+                    for(i <- 0 to VDB.ch.size-1) VDB.ch(i) -= tid
                     rollback()
+
+
+
+                //    VDB.ch=VDB.ch.slice(0,tid)++VDB.ch.takeRight(VDB.ch.size-tid-1)
+                    //VDB.ch(tid)= VDB.ch(tid).empty
+                }
+                else {
+                    prime_lock2.lock()                    // try to lock the read lock
+                    VDB.ch(tid)-= waitingTid
+                    LockTable.table(oid) = (lock, tid)
+                    ret = (VDB.read(tid, oid))._1
+                    readLocks += (oid -> prime_lock2)
                 }
             }
-            prime_lock2.lock() 					// try to lock the read lock
-            ret = (VDB.read(tid,oid))._1
-            readLocks += (oid -> prime_lock2)
+
         } // else
 
         rwSet(oid)(READ) -= 1						// take a read of this object off of the rw_set
@@ -170,23 +206,35 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def write2PL (oid: Int, value: VDB.Record)
     {
-
+        println("prewriting"+tid+"readsoid"+oid)
         var lock = LockTable.lock(oid,tid)
         var waitingTid = LockTable.table.getOrElse(oid,(null,-1))._2
         var primeLock = lock.writeLock()
 
         if(primeLock.isHeldByCurrentThread) VDB.write(tid, oid, value)
         else{
+            if (waitingTid!=tid)
             VDB.ch(tid)+= waitingTid
             val graph = new Graph(VDB.ch)
             if (hasCycle(graph)) {                                                      //if wait for lock will cause a deadlock then roll back and clear the graph assoicated to the tid
-                VDB.ch(tid)= VDB.ch(tid).empty
+                println("printGby"+tid)
+                graph.printG()
+                println("-----------------------------"+LockTable.table.toString())
+                VDB.ch(tid) = VDB.ch(tid).empty
+                for(i <- 0 to VDB.ch.size-1) VDB.ch(i) -= tid
                 rollback()
+
+
+               // VDB.ch=VDB.ch.slice(0,tid)++VDB.ch.takeRight(VDB.ch.size-tid-1)
+              ///  VDB.ch(tid)= VDB.ch(tid).empty
             }
-            primeLock.lock()
-            LockTable.table(oid)=(lock,tid)
-            writeLocks += (oid -> primeLock)
-            VDB.write(tid, oid, value)
+            else {
+                primeLock.lock()
+                VDB.ch(tid)-= waitingTid
+                LockTable.table(oid) = (lock, tid)
+                writeLocks += (oid -> primeLock)
+                VDB.write(tid, oid, value)
+            }
         }
         rwSet(oid)(WRITE) -= 1
         if( (rwSet(oid)(READ) == 0) &&					// remove the oid from the rwSet if no more reads or writes needed
@@ -272,6 +320,10 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	for(i <- readLocks.keys) {
 	      println(s"releasing readLock for oid: ${i}")
 	      readLocks(i).unlock()
+          LockTable.checkLock(i)
+         //if (Lock Table.table.getOrElse(i,(null,-1))._2==tid)
+         //LockTable.table-=i
+
 	} // for
     }
 
@@ -285,6 +337,9 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	for(i <- writeLocks.keys) {
 	      println(s"releasing writeLock for oid: ${i}")
 	      writeLocks(i).unlock()
+      // if (LockTable.table.getOrElse(i,(null,-1))._2==tid)
+          ///  LockTable.table-=i
+        LockTable.checkLock(i)
 	} // for
     }
 
@@ -330,13 +385,15 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def rollback ()
     {
+
 	println("rollback...")
 	ROLLBACK = true
         VDB.rollback (tid)
         releaseReadLocks()
         releaseWriteLocks()
-	val newT = new Transaction(this.sch, this.concurrency)
+	val newT = new Transaction(this.sch, this.concurrency, tid)
 	newT.start()
+        newT.join()
 
     } // rollback
 
