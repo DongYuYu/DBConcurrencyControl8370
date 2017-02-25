@@ -50,7 +50,6 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     private val DEBUG       = true						// debug flag
     private val tid         = nextCount ()        		    		// tarnsaction identifier
     private var rwSet       = Map[Int, Array[Int]]()		    		// the read write set : [oid, (num_reads, num_writes)]
-    private var contracting = false						// keeps track of which 2PL phase we're in (contracting or expanding)
     private var readLocks   = Map [Int, ReentrantReadWriteLock.ReadLock ]()	// (oid -> readLock)  read locks we haven't unlocked yet
     private var writeLocks  = Map [Int, ReentrantReadWriteLock.WriteLock]() 	// (oid -> writeLock) write locks we haven't unlocked yet 
     private val READ        = 0
@@ -191,7 +190,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	VDB.ch.synchronized{
 		lock.synchronized{
 			LockTable.table.synchronized{
-				if( LockTable.getLockHolders(oid).size == 0 )               return true	// if nobody is locking this object you can't add a deadlock
+				if( LockTable.getLockHolders(oid).size == 0 )          return true	// if nobody is locking this object you can't add a deadlock
 				else if( lock.writeLock.isHeldByCurrentThread() )      return true	// if you hold the writeLock you can't add a deadlock
 				else if(readOrWrite == READ && !lock.isWriteLocked() ) return true	// trying to read an object not writeLocked won't block
 				else{		       	       			       	      		// otherwise you will block and may add a deadlock
@@ -450,7 +449,7 @@ object TransactionTest extends App {
     private val TSO = 1
     private val numTrans = 10
     private val numOps   = 10
-    private val numObjs  = 10
+    private val numObjs  = 50
     
     //val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
     //val t2 = new Transaction (new Schedule (List ( ('r', 1, 0), ('r', 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
