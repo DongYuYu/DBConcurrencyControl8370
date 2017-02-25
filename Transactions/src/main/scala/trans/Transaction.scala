@@ -38,9 +38,6 @@ object Transaction
 
 import Transaction._
 
-import scalation.graphalytics.Graph
-import scalation.graphalytics.Cycle.hasCycle
-
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` class
   *  @param sch  the schedule/order of operations for this transaction.
@@ -67,8 +64,6 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	begin()
     	if(concurrency == _2PL) fillReadWriteSet()
         breakable{
-		begin()
-
 		for (i <- sch.indices) {
 		    //println(s"${sch(i)}")
 	    	    if(!ROLLBACK){
@@ -200,7 +195,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 					val waitGraph = cloneAndModifyPrecedenceGraph(oid)
 					println(s"precedence graph from $tid")
 					waitGraph.printG()
-					if( hasCycle(waitGraph) ) return false
+					if( waitGraph.hasCycle() ) return false
 					else return true
 				} // else
 			} // synchronized
@@ -461,9 +456,12 @@ object TransactionTest extends App {
     for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),_2PL)
     VDB.initCache()
     for (i <- transactions.indices){
-    	transactions(i).start()
-	transactions(i).join()
-    } // for  
+    	transactions(i).start()	
+    } // for
+    for (i <- transactions.indices){
+    	transactions(i).join()
+    } // for
+    
 
 
 } // TransactionTest object

@@ -22,10 +22,10 @@ package trans
  *  @param inverse  whether to store inverse adjacency sets (parents)
  *  @param name     the name of graph
  */
-class Graph (val ch:      Array [Set [Int]],
-             val label:   Array [Int] = Array.ofDim (0),
-             val inverse: Boolean = false,
-             val name: String = "g")
+class Graph (ch:      Array [Set [Int]],
+             label:   Array [Int] = Array.ofDim (0),
+             inverse: Boolean = false,
+             name: String = "g")
       extends Cloneable 
 {
     /** The map from label to the set of vertices with the label
@@ -120,7 +120,8 @@ class Graph (val ch:      Array [Set [Int]],
     def same (g: Graph): Boolean =
     {
         if (size != g.size) return false
-        for (u <- ch.indices; u_c <- ch(u) if ! (g.ch(u) contains u_c)) return false
+	val gCh = g.getEdges()
+        for (u <- ch.indices; u_c <- ch(u) if ! (gCh(u) contains u_c)) return false
         true
     } // same
 
@@ -162,6 +163,54 @@ class Graph (val ch:      Array [Set [Int]],
         println (")")
     } // printG
 
+    def hasCycle (): Boolean = 
+    {
+	val G_N = 0;
+	val Y_W = 1;
+	val R_D = 2;
+	
+        val color = Array.fill (ch.size)(G_N)    // traffic light colors: GreeN, YelloW, ReD
+
+        for (v <- color.indices if color(v) == G_N && loopback (v)) return true 
+
+        /*  Search the descendants of vertex 'u' to see if there is a loopback.
+         *  @param u  the vertex where the search starts
+         */
+        def loopback (u: Int): Boolean =
+        {
+            if (color(u) == Y_W) return true
+            color(u) = Y_W
+            for (v <- ch(u) if color(v) != R_D && loopback (v)) return true
+            color(u) = R_D
+            false
+        } // loopback
+
+       false
+    } // hasCycle
+
+    def addEdge(u: Int, v: Int){
+    	ch(u)=ch(u)+v
+    }
+
+    def removeEdge(u: Int, v: Int){
+    	ch(u)=ch(u)-v
+    }
+
+    def getEdges() : Array[Set[Int]] =
+    {
+	ch.clone
+    }
+
+    def getLabels() : Array[Int] =
+    {
+	label.clone
+    }
+
+    def getName() : String =
+    {
+	name ++ ""
+    }
+
 } // Graph class
 
 
@@ -192,8 +241,8 @@ object Graph
                         Array (10, 11, 11),
                         false, "q1")
 
-    val g1p = new Graph (g1.ch, g1.label, true, g1.name)    // with parents
-    val q1p = new Graph (q1.ch, q1.label, true, q1.name)    // with parents
+    val g1p = new Graph (g1.getEdges(), g1.getLabels(), true, g1.getName())    // with parents
+    val q1p = new Graph (q1.getEdges(), q1.getLabels(), true, q1.getName())    // with parents
 
     // -----------------------------------------------------------------------
     // Data and query graphs from the following paper:
@@ -248,8 +297,8 @@ object Graph
                         Array (10, 11, 12, 12),
                                false, "q2")
 
-    val g2p = new Graph (g2.ch, g2.label, true, g2.name)    // with parents
-    val q2p = new Graph (q2.ch, q2.label, true, q2.name)    // with parents
+    val g2p = new Graph (g2.getEdges(), g2.getLabels(), true, g2.getName())    // with parents
+    val q2p = new Graph (q2.getEdges(), q2.getLabels(), true, q2.getName())    // with parents
 
 } // Graph object
 
