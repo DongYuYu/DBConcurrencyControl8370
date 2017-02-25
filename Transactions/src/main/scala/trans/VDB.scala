@@ -1,4 +1,4 @@
-/*
+/*A
 	TODO:
 		find a thread safe collection to use
 		implement the deadlock checker
@@ -22,7 +22,7 @@
 
 package trans
 
-import scala.collection.mutable.{ArrayBuffer, Map}
+import scala.collection.mutable.{ArrayBuffer, Map, Set}
 
 import scala.util.control.Breaks._
 import scala.util.Random
@@ -38,8 +38,8 @@ import Operation._
  object LockTable
  {
 
-	 val table = Map[Int, (ReentrantReadWriteLock, Int)] ().withDefaultValue((null,-1))			// Map used to access locks for each object
-		    	    	     			     			// (oid => lock)
+	 val table = Map[Int, (ReentrantReadWriteLock, Set[Int])] ()					// Map used to access locks for each object
+		    	    	     			     						// (oid => (lock,lock_holders)
 	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/** Method to retrieve a WriteLock for this object. Creates a lock
 	 *  if there is not a lock associated with this object in the lock
@@ -49,21 +49,16 @@ import Operation._
 	  * @ param tid  The integer id for the transaction trying to lock the object
 	 */
 
-	def lock(oid: Int,tid: Int): ReentrantReadWriteLock =
+	def getObjLock(oid: Int): ReentrantReadWriteLock =
 	{
-		this.synchronized{
-
-			var lock = table.getOrElse(oid,(null,-1))	._1		// Retrieve the RRWL associated with the object
-			if( lock == null ){								// in the lock table
-				table += (oid -> (new ReentrantReadWriteLock(true),tid))		// with the object in the table
-				lock = table(oid)._1
-
-			}// if
-			lock							// Return the WriteLock for this RRWL
-
-		}
-
-	} // lock
+		var lock = table.getOrElse(oid,(null,null))._1				
+		if( lock == null ){
+		    	 var owners = Set[Int]()
+			 table += (oid -> (new ReentrantReadWriteLock(true),owners) )		
+			 lock = table(oid)._1
+		}// if
+		lock							
+	} // getObjLock
 
 	
 	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -73,20 +68,32 @@ import Operation._
 	 */
 	def checkLock(oid: Int) 
 	{
-		this.synchronized {
+		
 		  if(table contains oid){
 		  	   var lock = table(oid)._1
       		  	   if( !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
 		  }//if 
-		}
+		
 	}
+
+	def lock(oid: Int, tid: Int)
+	{
+		table(oid)._2 += tid
+	} // lock()
+
+	def unlock(oid: Int, tid: Int)
+	{
+		table(oid)._2 -= tid
+		checkLock(oid)
+	}
+
+	def getLockHolders(oid: Int): Set[Int] =
+	{
+		if(table contains oid ) table(oid)._2
+		else Set[Int]()
+	} // getLockingTransactions()
  }
 
-class adjustLock extends ReentrantReadWriteLock {
-	override def getOwner: Thread = super.getOwner
-
-
-}
 
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -103,7 +110,7 @@ object VDB
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
     private val log_rec_size  = 264			 // size of a log record
-
+    
 
 	import scalation.graphalytics.Graph
 	import scala.collection.immutable.Set
@@ -118,11 +125,15 @@ object VDB
 
     private var lastCommit = -1
 
-
+    	
 	val LOCK_CHECK_BUFFER   = 500
 	val ch = Array.ofDim[Set[Int]](LOCK_CHECK_BUFFER)
 	for (i <- ch.indices) ch(i) = Set[Int]()
-	//ch(i) += j      i wati for j
+	//var ch = ArrayBuffer[Set[Int]]()
+	//var youngestTransaction = -1 
+	//var activeTransactions  = Set[Int]()
+
+	//ch(j) += i      i wati for j
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
      */
@@ -135,8 +146,7 @@ object VDB
                     val cache		 = Array.ofDim [Page]     (pages)	// database cache
                     val logBuf 		 = ArrayBuffer [LogRec]   ()            // log buffer
 	    private val map    		 = Map         [Int, Int] ()            // map for finding pages in cache (pageNumber -> cpi)
-	    	    val SCHEDULE_TRACKER = ArrayBuffer [Op]       ()
-		    val sched_file       = new RandomAccessFile("sched_file","rw")
+	    	    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Initialize the cache.
      */
@@ -150,6 +160,7 @@ object VDB
         } // for
     } // initCache
 
+     
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid' from the database.
      *  @param tid  the transaction performing the write operation
@@ -160,23 +171,19 @@ object VDB
 		if (DEBUG) println (s"read ($tid, $oid)")
 		val op = (r,tid,oid)
 		
-		if (CSR_TESTING) {
-	  	   	SCHEDULE_TRACKER.synchronized{
-				SCHEDULE_TRACKER += op
-			}// synchronized
-	  	   	val sched_file = new RandomAccessFile("sched_file","rw")
-		   	   
-			var bb = ByteBuffer.allocate(12)
+		//if (CSR_TESTING) {
+	  	   	   
+			//var bb = ByteBuffer.allocate(12)
 	  	 	//get a new ByteBuffer
-	   		bb.putInt(0)
-	   		bb.putInt(tid)
-	   		bb.putInt(oid)
-	   		var ba = bb.array()
-	   		sched_file.seek(sched_file.length())                //make sure to be appending
-	   		sched_file.write(ba)
+	   		//bb.putInt(0)
+	   		//bb.putInt(tid)
+	   		//bb.putInt(oid)
+	   		//var ba = bb.array()
+	   		//sched_file.seek(sched_file.length())                //make sure to be appending
+	   		//sched_file.write(ba)
 	   		//println("FlushlogBuff")
 	   		//println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
-		} // if
+		//} // if
 		val pageNum = oid/recs_per_page
 		var cpi = 0
 		var pg = new Page()
@@ -254,16 +261,16 @@ object VDB
         if (DEBUG) println (s"write ($tid, $oid, $newVal)")
 	val op = (w,tid,oid)
 	if (CSR_TESTING) {
-	   SCHEDULE_TRACKER += op
-	   val sched_file = new RandomAccessFile("sched_file","rw")
-	   var bb = ByteBuffer.allocate(12)
+	   //SCHEDULE_TRACKER += op
+	   //val sched_file = new RandomAccessFile("sched_file","rw")
+	   //var bb = ByteBuffer.allocate(12)
 	   //get a new ByteBuffer
-	   bb.putInt(1)
-	   bb.putInt(tid)
-	   bb.putInt(oid)
-	   var ba = bb.array()
-	   sched_file.seek(sched_file.length())                //make sure to be appending
-	   sched_file.write(ba)
+	   //bb.putInt(1)
+	   //bb.putInt(tid)
+	   //bb.putInt(oid)
+	   //var ba = bb.array()
+	   //sched_file.seek(sched_file.length())                //make sure to be appending
+	   //sched_file.write(ba)
 	   //println("FlushlogBuff")
 	   //println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
 	} // if
@@ -294,8 +301,23 @@ object VDB
     {
         if (DEBUG) println (s"begin ($tid)")
         logBuf += ((tid, BEGIN, null, null))
-
+	//addActiveTransaction(tid)
     } // begin
+
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /**
+     */
+/*     def addActiveTransaction(tid: Int)
+     {
+	activeTransactions += tid
+	if(tid > youngestTransaction) youngestTransaction = tid
+	var tempCh = new ArrayBuffer[Set[Int]](youngestTransaction+1)
+	tempCh(youngestTransaction) = Set[Int]()
+	for(i <- ch.indices){
+	} tempCh(i) = ch(i)
+	ch = tempCh
+     }*/ // addNode()
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Commit the transaction with id 'tid'.
@@ -308,14 +330,25 @@ object VDB
 	   println (s"commit ($tid)")
 	   //printLogBuf()
 	}
-
 	flushLogBuf()			 				//flush the logBuf
-	
 	lastCommit = logBuf.length - 1					//update the lastCommit pointer
-
+	//removeActiveTransaction(tid)
 	//if( DEBUG ) print_log()
-	
+	ch(tid) = Set[Int]()
+	for(i <- ch.indices ){
+	      //println(s"from commit for $tid, i: $i, ch.size: ${ch.size}")
+	      if( ch(i) != null ) ch(i) -= tid
+	} 
     } // commit
+
+/*     def removeActiveTransaction(tid: Int)
+     {
+	activeTransactions -= tid
+	var maxTrans = -1
+	ch(tid) = Set[Int]()
+	for(i <- activeTransactions) if( i > maxTrans ) maxTrans = i
+	if(youngestTransaction < maxTrans) youngestTransaction = maxTrans
+     }*/// removeActiveTransation()
 
     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Method to flush the logBuf contents into the log_file. 
@@ -404,7 +437,9 @@ object VDB
 		}// if
 		i-=1
 	}// while
-        // I M P L E M E N T
+        //removeActiveTransaction(tid)
+	ch(tid) = Set[Int]()
+	for(i <- ch.indices ) ch(i) -= tid
     } // rollback
 
     def mydefault0 = -1
@@ -565,12 +600,13 @@ object VDBTest2 extends App
  	val OPS_PER_TRANSACTION  = 20
 	val TOTAL_TRANSACTIONS =30
     	val TOTAL_OBJECTS	 = 480
-
+	val _2PL = 0
+	val TSO  = 1
 	PDB.initStore()
    	VDB.initCache ()
 
 	var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
-	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) )
+	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) , _2PL)
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
 	println("all transactions started")
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
@@ -580,36 +616,36 @@ object VDBTest2 extends App
 	//println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER: ${VDB.SCHEDULE_TRACKER}*************************")
 	//var raf = new RandomAccessFile("sched_file","rw")
 
-	val sched = new Schedule( VDB.SCHEDULE_TRACKER.toList )
-	println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
+	//val sched = new Schedule( VDB.SCHEDULE_TRACKER.toList )
+	//println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
 	System.exit(0)
 } // VDBTest2
 
 object VDBTest2_2 extends App
 {
-     val TOTAL_TRANSACTIONS   = 5
-     var raf = new RandomAccessFile("sched_file","rw")
-     raf.seek(0)						
-     var buf   = Array.ofDim[Byte](12)
-     var read  = raf.read(buf)
-     var s = ArrayBuffer[(Char,Int,Int)]()
-     while( read != -1 ){
-     	    println(s"read: $read")
+     //val TOTAL_TRANSACTIONS   = 5
+     //var raf = new RandomAccessFile("sched_file","rw")
+     //raf.seek(0)						
+     //var buf   = Array.ofDim[Byte](12)
+     //var read  = raf.read(buf)
+     //var s = ArrayBuffer[(Char,Int,Int)]()
+     //while( read != -1 ){
+     	    //println(s"read: $read")
      	    //println(s"count: $count")
-     	    var bb = ByteBuffer.allocate(12)
-	    bb.put(buf);
-	    bb.position(0)
-	    var firstNum = bb.getInt()
-	    var firstLet = r
-	    if( firstNum == 0 ) firstLet = r
-	    else firstLet = w
-	    val tup = (firstLet,bb.getInt(),bb.getInt())
-	    s += tup
-	    read = raf.read(buf)
-     }// while
-     val sched = new Schedule( s.toList )
-     println(sched)
-     println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
+     	    //var bb = ByteBuffer.allocate(12)
+	    //bb.put(buf);
+	    //bb.position(0)
+	    //var firstNum = bb.getInt()
+	    //var firstLet = r
+	    //if( firstNum == 0 ) firstLet = r
+	    //else firstLet = w
+	    //val tup = (firstLet,bb.getInt(),bb.getInt())
+	    //s += tup
+	    //read = raf.read(buf)
+     //}// while
+     //val sched = new Schedule( s.toList )
+     //println(sched)
+     //println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
 } // VDBTest2_2
 
     
