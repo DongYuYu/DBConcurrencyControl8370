@@ -600,12 +600,13 @@ object VDBTest2 extends App
  	val OPS_PER_TRANSACTION  = 20
 	val TOTAL_TRANSACTIONS =30
     	val TOTAL_OBJECTS	 = 480
-
+	val _2PL = 0
+	val TSO  = 1
 	PDB.initStore()
    	VDB.initCache ()
 
 	var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
-	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) )
+	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) , _2PL)
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
 	println("all transactions started")
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
