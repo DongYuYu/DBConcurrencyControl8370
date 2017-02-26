@@ -22,26 +22,31 @@ package trans
  *  @param inverse  whether to store inverse adjacency sets (parents)
  *  @param name     the name of graph
  */
-class Graph (ch:      Array [Set [Int]],
+class Graph (ch:      Array [Set [Int]] = Array.ofDim (0),
              label:   Array [Int] = Array.ofDim (0),
              inverse: Boolean = false,
-             name: String = "g")
+             name:    String = "g")
       extends Cloneable 
 {
+
     /** The map from label to the set of vertices with the label
      */
-    val labelMap = buildLabelMap (label)
+    //val labelMap = buildLabelMap (label)
+    var labelMap = Map[Int, Int]()
+    /** The adjacency list that we can change...
+     */
+    var adjList = ch 
 
     /** The optional array of vertex inverse (parent) adjacency sets (incoming edges)
      */
-    val pa = Array.ofDim [Set [Int]] (if (inverse) ch.size else 0)
+    val pa = Array.ofDim [Set [Int]] (if (inverse) adjList.size else 0)
 
     if (inverse) addPar ()                       // by default, don't use 'pa'
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Clone (make a deep copy) of this graph.
      */
-    override def clone: Graph = new Graph (ch.clone, label.clone, inverse)
+    override def clone: Graph = new Graph (adjList.clone, label.clone, inverse)
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Add the inverse adjacency sets for rapid accesses to parent vertices.
@@ -49,30 +54,30 @@ class Graph (ch:      Array [Set [Int]],
     def addPar ()
     {
         for (j <- pa.indices) pa(j) = Set [Int] ()
-        for (i <- ch.indices; j <- ch(i)) pa(j) += i
+        for (i <- adjList.indices; j <- adjList(i)) pa(j) += i
     } // addPar
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Return the number of vertices in the graph.
      */
-    def size = ch.size
+    def size = adjList.size
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Return the number of edges in the graph.
      */
-    def nEdges = ch.foldLeft (0) { (n, i) => n + i.size }
+    def nEdges = adjList.foldLeft (0) { (n, i) => n + i.size }
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Given an array of labels, return an index from labels to the sets of
      *  vertices containing those labels.
      *  @param label  the array of vertex labels of type `Int`
      */
-    def buildLabelMap (label: Array [Int]): Map [Int, Set [Int]] =
+    def buildLabelMap (label: Array [Int]): Map [Int, Int] =
     {
-        var labelMap = Map [Int, Set [Int]] ()
+        var labelMap = Map [Int, Int] ()
         for (i <- label.indices) {                      // for each vertex i
             val lab  = label(i)                         // label for vertex i
-            labelMap += lab -> (labelMap.getOrElse (lab, Set ()) + i)
+            labelMap += lab -> i
         } // for
         labelMap
     } // buildLabelMap
@@ -88,7 +93,7 @@ class Graph (ch:      Array [Set [Int]],
      */ 
     def nSelfLoops: Int =
     {
-        ch.indices.foldLeft (0) { (sum, i) => if (ch(i) contains i) sum + 1 else sum }
+        adjList.indices.foldLeft (0) { (sum, i) => if (adjList(i) contains i) sum + 1 else sum }
     } // nSelfLoops
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -103,8 +108,8 @@ class Graph (ch:      Array [Set [Int]],
      */
     def checkEdges: Boolean =
     {
-        val maxId = ch.size - 1
-        for (u <- ch.indices; u_c <- ch(u) if u_c < 0 || u_c > maxId) {
+        val maxId = adjList.size - 1
+        for (u <- adjList.indices; u_c <- adjList(u) if u_c < 0 || u_c > maxId) {
             println (s"checkEdges: child of $u, with vertex id $u_c not in bounds 0..$maxId")
             return false
         } // for
@@ -121,14 +126,14 @@ class Graph (ch:      Array [Set [Int]],
     {
         if (size != g.size) return false
 	val gCh = g.getEdges()
-        for (u <- ch.indices; u_c <- ch(u) if ! (gCh(u) contains u_c)) return false
+        for (u <- adjList.indices; u_c <- adjList(u) if ! (gCh(u) contains u_c)) return false
         true
     } // same
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Return the set of vertices in the graph with label l.
      */
-    def getVerticesWithLabel (l: Int) = labelMap.getOrElse (l, Set [Int] ())
+    def getVerticesWithLabel (l: Int) = labelMap.getOrElse (l, -1)
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Convert 'this' graph to a string in a shallow sense.  Large arrays are
@@ -136,7 +141,7 @@ class Graph (ch:      Array [Set [Int]],
      */
     override def toString: String =
     {
-        s"Graph (ch.length = ${ch.length}, label.length = ${label.length}, inverse = $inverse, name = $name)"
+        s"Graph (adjList.length = ${adjList.length}, label.length = ${label.length}, inverse = $inverse, name = $name)"
     } // toString
 
    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -146,7 +151,7 @@ class Graph (ch:      Array [Set [Int]],
      */
     def toLine (i: Int, clip: Boolean = true): String =
     {
-        var ch_i = ch(i).toString
+        var ch_i = adjList(i).toString
         if (clip) ch_i = ch_i.replace ("Set(", "").replace (")", "")
         if (i < label.length) s"$i, ${label(i)}, $ch_i"
         else                  s"$i, $ch_i"
@@ -159,17 +164,28 @@ class Graph (ch:      Array [Set [Int]],
     def printG (clip: Boolean = true)
     {
         println (s"Graph ($name, $inverse, $size")
-        for (i <- ch.indices) println (toLine (i, clip))
+        for (i <- adjList.indices) println (toLine (i, clip))
         println (")")
+
     } // printG
 
+    def printG2()
+    {
+	for(key <- labelMap.keys) {
+	      var adjListPos = labelMap(key)
+	      print(s"$key: ")
+	      for( j <- adjList(adjListPos) ) print(s" $j ")
+	      println("")
+	}
+    }
     def hasCycle (): Boolean = 
     {
 	val G_N = 0;
 	val Y_W = 1;
 	val R_D = 2;
 	
-        val color = Array.fill (ch.size)(G_N)    // traffic light colors: GreeN, YelloW, ReD
+        val color = Array.fill (adjList.length)(G_N)    // traffic light colors: GreeN, YelloW, ReD
+	println(s"color.length: ${color.length}")
 
         for (v <- color.indices if color(v) == G_N && loopback (v)) return true 
 
@@ -178,9 +194,10 @@ class Graph (ch:      Array [Set [Int]],
          */
         def loopback (u: Int): Boolean =
         {
+	    println(s"loopback on $u")
             if (color(u) == Y_W) return true
             color(u) = Y_W
-            for (v <- ch(u) if color(v) != R_D && loopback (v)) return true
+            for (vLabel <- adjList(u); v=labelMap(vLabel) if color(v) != R_D && loopback (v)) return true
             color(u) = R_D
             false
         } // loopback
@@ -189,16 +206,28 @@ class Graph (ch:      Array [Set [Int]],
     } // hasCycle
 
     def addEdge(u: Int, v: Int){
-    	ch(u)=ch(u)+v
+    	val uPos = labelMap(u)
+    	adjList(uPos)=adjList(uPos)+v
+
     }
 
     def removeEdge(u: Int, v: Int){
-    	ch(u)=ch(u)-v
+    	val uPos = labelMap(u)
+    	adjList(uPos)=adjList(uPos)-v
+    }
+
+    def addNode(u: Int)
+    {
+	var newAdjList = Array.ofDim[Set[Int]](adjList.length + 1)
+	for( i <- adjList.indices ) newAdjList(i) = adjList(i)
+	newAdjList(newAdjList.length-1) = Set[Int]()
+	labelMap = labelMap + (u -> (newAdjList.length - 1))
+	adjList = newAdjList  
     }
 
     def getEdges() : Array[Set[Int]] =
     {
-	ch.clone
+	adjList.clone
     }
 
     def getLabels() : Array[Int] =
@@ -316,5 +345,24 @@ object GraphTest extends App
     g2.printG ()
     q2.printG ()
 
+    val g3 = new Graph()
+    println("Adding nodes to new graph")
+    g3.addNode(1)
+    g3.addNode(2)
+    g3.addNode(3)
+
+    println("Adding edges to new graph")
+    g3.addEdge(1,2)
+    g3.addEdge(1,3)
+    g3.addEdge(2,3)
+
+    println("Before adding cycle: ")
+    g3.printG2()
+
+    g3.addEdge(3,1)
+    println("After adding cycle: ")
+    g3.printG2()
+
+    println(s"Cycle detection: ${g3.hasCycle()}")
 } // GraphTest object
 
