@@ -17,8 +17,7 @@
  */
 
 package trans
-import scalation.graphalytics.Graph
-import scalation.graphalytics.Cycle.hasCycle
+
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Operation` object defines the 'Op' type and read (r) and write (w) operation-types.
  */
@@ -63,8 +62,8 @@ class Schedule (s: List [Op])
 	    if ( conflicts (s(i), s(j)) )ch(s(i)._2) += s(j)._2
 	}
 	val g = new Graph(ch)
-        g.printG ()
-	!hasCycle(g)
+        g.printG2 ()
+	!(g.hasCycle)
     } // isCSR
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

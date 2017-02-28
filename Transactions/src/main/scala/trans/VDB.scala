@@ -1,4 +1,4 @@
-/*A
+/*
 	TODO:
 		find a thread safe collection to use
 		implement the deadlock checker
@@ -29,71 +29,206 @@ import scala.util.Random
 import java.io.{IOException, RandomAccessFile, FileNotFoundException}
 import java.nio.ByteBuffer
 import java.util.concurrent.locks.ReentrantReadWriteLock
-
+import scala.collection.mutable.HashMap
 import Operation._
 
-//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-/** The 'LockTable' object represents the lock table for the VDB
- */
- object LockTable
- {
+object TSTable
+{
+    private val debugSynch = true
+    
+    /** Associative map of read time stamps. K => V :: (oid => read_TS)
+     */
+    private val readStamps = new HashMap [Int, Int]
 
-	 val table = Map[Int, (ReentrantReadWriteLock, Set[Int])] ()					// Map used to access locks for each object
-		    	    	     			     						// (oid => (lock,lock_holders)
-	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	/** Method to retrieve a WriteLock for this object. Creates a lock
-	 *  if there is not a lock associated with this object in the lock
-	 *  table.
-	 *
-	 *  @ param oid  The integer id for the object the transaction is trying to lock
-	  * @ param tid  The integer id for the transaction trying to lock the object
-	 */
+    /** Associative map of write time stamps. K => V :: (oid +> write_TS)
+     */
+    private val writeStamps = new HashMap [Int, Int]
 
-	def getObjLock(oid: Int): ReentrantReadWriteLock =
-	{
-		var lock = table.getOrElse(oid,(null,null))._1				
-		if( lock == null ){
-		    	 var owners = Set[Int]()
-			 table += (oid -> (new ReentrantReadWriteLock(true),owners) )		
-			 lock = table(oid)._1
-		}// if
-		lock							
-	} // getObjLock
+    /** Method to retrieve the read_TS for an object
+     *  @param  oid the object to retrieve a read time stamp for. 
+     */
+    def readTS(oid: Int): Int =
+    {
+	readStamps.getOrElse(oid,-1)
+    }
+    
+    /** Method to retrieve the write_TS for an object
+     *  @param  oid the object to retrieve a write time stamp for. 
+     */
+    def writeTS(oid: Int): Int =
+    {
+	writeStamps.getOrElse(oid,-1)
+    }
 
-	
-	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	/** Method to remove unnecessary locks from the table. Check the waiters
-	 *  for the lock, if none remove from the table.
-	 *  @ param oid  The object identifier the lock is associated with.
-	 */
-	def checkLock(oid: Int) 
-	{
-		
-		  if(table contains oid){
-		  	   var lock = table(oid)._1
-      		  	   if( !(lock.hasQueuedThreads()) ) table -= oid	// take the lock out of the table, since no one wants it
-		  }//if 
-		
+    /** 
+     */
+    def readStamp(tid: Int, oid: Int)
+    {
+	if(readStamps contains oid) readStamps(oid) = tid
+	else readStamps += ((oid, tid))
+    }
+
+    def writeStamp(tid: Int, oid: Int)
+    {
+	if(writeStamps contains oid) writeStamps(oid) = tid
+	else writeStamps += ((oid, tid))
+    }
+}
+
+object WaitsForGraph
+{
+    private val debugSynch = true
+    
+    var graph = new Graph()
+
+    def addEdge(u: Int, v: Int)    = graph.addEdge(u,v)
+    
+    def removeEdge(u: Int, v: Int) = graph.removeEdge(u,v)
+
+    def addNode(u: Int)       	   = graph.addNode(u)
+
+    def removeNode(u: Int) 	   = graph.removeNode(u)
+
+    def printG()   		   = graph.printG2() 
+    
+    def checkForDeadlocks(tid: Int, oid: Int, lock: ReentrantReadWriteLock, readOrWrite: Int) : Boolean =
+    {
+    	val READ = 0
+	val WRITE = 1
+	var ret = true
+	var req = ""
+	if(readOrWrite == READ) req = "readLock" else req = "writeLock"
+	if(debugSynch) println(s"$tid entering WaitsForGraph synch block in ck4DeadLocks")
+	synchronized{
+		if(debugSynch) println(s"$tid entered WaitsForGraph synch block in ck4DeadLock")
+		if( LockTable.getOwners(oid).size == 0 ){
+		    println(s"Found empty owners set for $oid")
+		    if(lock.isWriteLocked() || lock.getReadLockCount() > 0 ) println(s"Lock disagrees with table.") // sanity check
+		} // if		
+		else if( lock.writeLock.isHeldByCurrentThread() ){
+		     println(s"Found that $oid was already writeLocked by $tid")
+		} // else if	ret = true
+		else if( readOrWrite == READ && !lock.isWriteLocked() ){
+		     println(s"Found that $oid is shared locked and $tid wants to share the lock.")
+		} // ese if 
+		else {
+		     println(s"Cking deadlocks for $tid request to $req $oid. Current waits for graph: ")
+		     printG()
+		     println("")
+		     for( owner <- LockTable.getOwners(oid) ) graph.addEdge(tid, owner)
+		     println(s"edges added temporarilly to evaluate $req request from $tid to lock $oid")
+		     if( graph.hasCycle() ){
+		     	 ret = false
+         		 for( owner <- LockTable.getOwners(oid) ) graph.removeEdge(tid, owner)
+			 println(s"${tid}'s request to $req $oid DENIED ")
+		     }
+		     else{
+			println(s"${tid}'s request to $req $oid GRANTED. Current waits for graph: ")
+			printG()
+			println("")
+		     }	
+		} // 
+	} // synchronized
+	if(debugSynch) println(s"$tid exited WaitsForGraph synch block in ck4DeadLock")
+	ret
+    }
+}
+
+object LockTable
+{
+    private val debugSynch = true
+
+    /** Associative map of locks associated with objects K => V :: (oid => lock)
+     */
+    private var locks = new HashMap [Int, ReentrantReadWriteLock] ()
+
+    /** An associate map of locks to the owners of the locks: K => V :: (oid => set of owners )
+     */
+    private var owners = new HashMap [Int, scala.collection.mutable.Set[Int]] ()
+
+    /** Retrieve the lock associated with an object
+     */
+    def getObjLock(oid: Int) : ReentrantReadWriteLock = {
+    	var lock = new ReentrantReadWriteLock(true)
+	if(debugSynch) println(s"entering Lockable synch block in getObjLock")
+    	synchronized{
+		if(debugSynch) println(s"entered Lockable synch block in getObjLock")
+		if ( locks contains oid ) lock = locks(oid)
+		else{
+			locks += ((oid,lock))
+		} // else
+	} // synchronized
+	if(debugSynch) println(s"exited LockTable synch block in getObjLock")
+	lock
+    }
+
+    def getOwners(oid: Int): scala.collection.mutable.Set[Int] =
+    {
+	//println("entering synchronized block to getOwners")
+	var ret = scala.collection.mutable.Set[Int] ()
+	if(debugSynch) println(s"entering Lockable synch block in getOwners")
+	synchronized{
+		if(debugSynch) println(s"entered LockTable synch block in getOwners")
+		if( owners contains oid ) ret = owners(oid)
 	}
+	if(debugSynch) println(s"exited LockTable synch block in getOwners")
+	ret
+    }
 
-	def lock(oid: Int, tid: Int)
-	{
-		table(oid)._2 += tid
-	} // lock()
-
-	def unlock(oid: Int, tid: Int)
-	{
-		table(oid)._2 -= tid
-		checkLock(oid)
+    def addOwner(oid: Int, tid: Int)
+    {
+    	//println("entering synchronized block to addOwner")
+	if(debugSynch) println(s"$tid entering Locktable synch block in addOwner")
+	synchronized{
+		if(debugSynch) println(s"$tid entered Lockable synch block in addOwner")
+		//println("entered synchronized block to addOwner")
+		if(owners contains oid) owners(oid) += tid
+		else owners(oid) = scala.collection.mutable.Set(tid)
 	}
+	if(debugSynch) println(s"$tid exited Lockable synch block in addOwner")
+	//println("left synchronized block to addOwner")
+    }
 
-	def getLockHolders(oid: Int): Set[Int] =
-	{
-		if(table contains oid ) table(oid)._2
-		else Set[Int]()
-	} // getLockingTransactions()
- }
+    /*******************************************************************************
+     * Unlock/release the lock on data object oid.
+     * @param tid  the transaction id
+     * @param oid  the data object id
+     */
+    def unlock (tid: Int, oid: Int)
+    {
+	if(debugSynch) println(s"$tid entering Locktable synch block in unlock")
+	synchronized{
+	    if(debugSynch) println(s"$tid entered Locktable synch block in unlock")
+	    if( (owners contains oid) && (owners(oid) contains tid) ) {
+	    	owners(oid) -= tid
+		println(s"owners of lock for $oid: ${owners(oid).mkString}")
+		if( owners(oid).size == 0 ) owners = owners - oid
+	    } // if
+	    else if( !(owners contains oid) ) println(s"$tid tried to unlock object $oid which didn't have any owners")
+	    else println(s"$tid tried to unlock object $oid that it didn't own.")
+	} // synchronized
+        if(debugSynch) println(s"$tid exited Locktable synch block in unlock")
+    } // ul
 
+    /*******************************************************************************
+     * Convert the lock table to a string.
+     */
+    override def toString: String =
+    {
+	var ret = "LockTable: \n"
+    	//println("entering synchronized block to toString")
+        synchronized {
+	    //println("entered synchronized block to toString")
+	    for(oid <- locks.keys){
+	    	    ret += (oid + ": ")
+		    ret += owners.get(oid).mkString(" ")
+		    ret += "\n"		    
+	    }
+	}
+	//println("left synchronized block to toString")
+	ret
+    } // toString
+}
 
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -103,22 +238,15 @@ object VDB
 {
     type Record = Array [Byte]                           // record type
     type LogRec = Tuple4 [Int, Int, Record, Record]      // log record type (tid, oid, v_old, v_new)
-
+    
     private val DEBUG         = true                     // debug flag
+    private val debugSynch    = true
     private val CSR_TESTING   = false 
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
     private val log_rec_size  = 264			 // size of a log record
     
-
-	import scalation.graphalytics.Graph
-	import scala.collection.immutable.Set
-	import scalation.graphalytics.Cycle.hasCycle
-
-
-    
-    var tsTable = Array.ofDim[Int](pages*recs_per_page, 2)  //create a Timestamp Table record the (rts, ws) of oid
     private val BEGIN    = -1
     private val COMMIT   = -2
     private val ROLLBACK = -3
@@ -126,14 +254,6 @@ object VDB
     private var lastCommit = -1
 
     	
-	val LOCK_CHECK_BUFFER   = 500
-	val ch = Array.ofDim[Set[Int]](LOCK_CHECK_BUFFER)
-	for (i <- ch.indices) ch(i) = Set[Int]()
-	//var ch = ArrayBuffer[Set[Int]]()
-	//var youngestTransaction = -1 
-	//var activeTransactions  = Set[Int]()
-
-	//ch(j) += i      i wati for j
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
      */
@@ -298,26 +418,20 @@ object VDB
      *  @param tid  the transaction id
      */
     def begin (tid: Int)
-    {
-        if (DEBUG) println (s"begin ($tid)")
-        logBuf += ((tid, BEGIN, null, null))
-	//addActiveTransaction(tid)
+    {	
+    	//println(s"transaction $tid entering synchronized block to begin")
+	synchronized{
+	    //println(s"transaction $tid entered synchronized block to begin")
+	    if (DEBUG) println (s"begin ($tid)")
+            logBuf += ((tid, BEGIN, null, null))
+	    WaitsForGraph.addNode(tid)
+	    //println(s"Added transaction $tid. Graph: ")
+	    //WaitsForGraph.printG()
+	    //println("")
+	}
+	//println(s"transaction $tid left synchronized block to begin")	
     } // begin
 
-
-    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-    /**
-     */
-/*     def addActiveTransaction(tid: Int)
-     {
-	activeTransactions += tid
-	if(tid > youngestTransaction) youngestTransaction = tid
-	var tempCh = new ArrayBuffer[Set[Int]](youngestTransaction+1)
-	tempCh(youngestTransaction) = Set[Int]()
-	for(i <- ch.indices){
-	} tempCh(i) = ch(i)
-	ch = tempCh
-     }*/ // addNode()
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Commit the transaction with id 'tid'.
@@ -325,31 +439,24 @@ object VDB
      */
     def commit (tid: Int)
     {
- 	logBuf += ((tid, COMMIT, null, null))
-        if (DEBUG) {
-	   println (s"commit ($tid)")
-	   //printLogBuf()
-	}
-	flushLogBuf()			 				//flush the logBuf
-	lastCommit = logBuf.length - 1					//update the lastCommit pointer
-	//removeActiveTransaction(tid)
-	//if( DEBUG ) print_log()
-	ch(tid) = Set[Int]()
-	for(i <- ch.indices ){
-	      //println(s"from commit for $tid, i: $i, ch.size: ${ch.size}")
-	      if( ch(i) != null ) ch(i) -= tid
-	} 
+	//println(s"transaction $tid entering synchronized block to commit")
+	if(debugSynch) println(s"$tid entering VDB synchronized block")
+	synchronized{
+		if(debugSynch) println(s"$tid entered VDB synchronized block")
+		logBuf += ((tid, COMMIT, null, null))
+        	if (DEBUG) {
+	   	   println (s"commit ($tid)")
+	   	   //printLogBuf()
+		}
+		flushLogBuf()			 				//flush the logBuf
+		lastCommit = logBuf.length - 1					//update the lastCommit pointer
+       		WaitsForGraph.removeNode(tid)
+		println(s"$tid committed from VDB")
+		//if( DEBUG ) print_log()
+	} // synch
+	if(debugSynch) println(s"$tid exited VDB synchronized block")
     } // commit
-
-/*     def removeActiveTransaction(tid: Int)
-     {
-	activeTransactions -= tid
-	var maxTrans = -1
-	ch(tid) = Set[Int]()
-	for(i <- activeTransactions) if( i > maxTrans ) maxTrans = i
-	if(youngestTransaction < maxTrans) youngestTransaction = maxTrans
-     }*/// removeActiveTransation()
-
+    
     //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Method to flush the logBuf contents into the log_file. 
      */
@@ -437,9 +544,7 @@ object VDB
 		}// if
 		i-=1
 	}// while
-        //removeActiveTransaction(tid)
-	ch(tid) = Set[Int]()
-	for(i <- ch.indices ) ch(i) -= tid
+        WaitsForGraph.removeNode(tid)
     } // rollback
 
     def mydefault0 = -1

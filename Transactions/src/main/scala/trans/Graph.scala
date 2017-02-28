@@ -194,7 +194,6 @@ class Graph (ch:      Array [Set [Int]] = Array.ofDim (0),
          */
         def loopback (u: Int): Boolean =
         {
-	    println(s"loopback on $u")
             if (color(u) == Y_W) return true
             color(u) = Y_W
             for (vLabel <- adjList(u); v=labelMap(vLabel) if color(v) != R_D && loopback (v)) return true
@@ -206,14 +205,30 @@ class Graph (ch:      Array [Set [Int]] = Array.ofDim (0),
     } // hasCycle
 
     def addEdge(u: Int, v: Int){
-    	val uPos = labelMap(u)
-    	adjList(uPos)=adjList(uPos)+v
+    	try{
+	    if( u != v){
+	    	val uPos = labelMap(u)
+    	    	adjList(uPos)=adjList(uPos)+v
+	    } // if
+	} // try
+    	catch{
+	    case _: Throwable => handleAddException(u,v)
+		
+	} // catch
+    }
 
+    def handleAddException(u: Int, v: Int)
+    {
+	println(s"tried to add edge from $u to $v")
+	println("graph: ")
+	printG2()
     }
 
     def removeEdge(u: Int, v: Int){
+    	println(s"removing edge ($u,$v)")
     	val uPos = labelMap(u)
     	adjList(uPos)=adjList(uPos)-v
+	println(s"removed edge from $u to $v")
     }
 
     def addNode(u: Int)
@@ -223,6 +238,13 @@ class Graph (ch:      Array [Set [Int]] = Array.ofDim (0),
 	newAdjList(newAdjList.length-1) = Set[Int]()
 	labelMap = labelMap + (u -> (newAdjList.length - 1))
 	adjList = newAdjList  
+    }
+
+    def removeNode(v: Int)
+    {
+	val vPos = labelMap(v)
+	adjList(vPos) = Set[Int]()
+	for( u <- labelMap.keys ; uPos = labelMap(u) ) if( adjList(uPos) contains v ) removeEdge(u,v)
     }
 
     def getEdges() : Array[Set[Int]] =
@@ -364,5 +386,10 @@ object GraphTest extends App
     g3.printG2()
 
     println(s"Cycle detection: ${g3.hasCycle()}")
-} // GraphTest object
 
+    println("Removing node 3 from the graph")
+    g3.removeNode(3)
+    println("After removing 3: ")
+    g3.printG2()
+    println(s"Cycle detection: ${g3.hasCycle()}")
+} // GraphTest object

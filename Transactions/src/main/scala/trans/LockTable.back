@@ -17,7 +17,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
  * of locking protocols, such as Two-Phase Locking (2PL).
  * Caveat: shared/read locks are currently not implemented.
  */
-class LockTable2
+class LockTable
 {
 
 
@@ -101,7 +101,7 @@ class LockTable2
 object LockTableTest extends App
 {
     println(s"Creating new lock table")
-    val ltab = new LockTable2 ()
+    val ltab = new LockTable ()
     println(s"Creating new locks for first time.")
     val lock1 = ltab.getObjLock(1)
     val lock2 = ltab.getObjLock(2)
@@ -113,6 +113,7 @@ object LockTableTest extends App
     ltab.addOwner(2,2)
     ltab.addOwner(3,3)
     println(ltab)
+    ltab.getOwners
     println(s"Accessing already created locks.")
     for(i <- 1 to 3){
         var lock4 = ltab.getObjLock(i)
