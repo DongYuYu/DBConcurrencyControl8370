@@ -99,11 +99,30 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	}// for
     } // fillReadWriteSet
 
+    //::
+    /**
+     */
+    def read2PL(oid: Int): VDB.Record =
+    {
+	println(s"from trans: read($tid,$oid)")
+	var rec        	= Array.ofDim[Byte](128)
+	var futureWrite = (rwSet contains oid) && rwSet(oid)(WRITE) > 0
+	var locked = true
+	if ( futureWrite )	locked = writeLockObj( oid )
+	else 		 	locked = readLockObj( oid )
+	if (locked) {
+	   houseKeeping(oid, READ)
+	   rec = VDB.read(tid,oid)._1
+	}
+	else rollback()
+	rec
+    }
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'.
       *  @param oid  the object/record being read
       */
-    def read2PL (oid: Int): VDB.Record =
+    def oldRead2PL (oid: Int): VDB.Record =
     {
 	println(s"from trans: read($tid,$oid)")
 	var rec		= Array.ofDim[Byte](128)
@@ -172,12 +191,23 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	rec
     } // read2PL
 
+    def write2PL (oid: Int, value: VDB.Record)
+    {
+	println(s"from trans: write($tid,$oid)")
+	locked = writeLockObj(oid)
+	if( locked ){
+		houseKeeping(oid,WRITE)
+		VDB.write (tid,oid, value)
+	} // if
+	else rollback()
+    }
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Write the record with the given 'oid'.
       *  @param oid    the object/record being written
       *  @param value  the new value for the the record
       */
-    def write2PL (oid: Int, value: VDB.Record)
+    def oldWrite2PL (oid: Int, value: VDB.Record)
     {
 	println(s"from trans: write($tid,$oid)")
         var lock        = LockTable.getObjLock( oid )					   // get the rrwl associated with this object from the lock table
@@ -228,11 +258,49 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	rwSet(oid)(readOrWrite) -= 1
 	if( (rwSet(oid)(READ) == 0) && (rwSet(oid)(WRITE)==0) ) rwSet -= oid 
     }
-   
+
+    //::
+    /**/
+    def writeLockObj(oid: Int) = Boolean
+    {
+	val locked    = false
+	val lock      = LockTable.getObjLock(oid)
+	val writeLock = lock.writeLock()
+	if (debugSynch) println(s"$tid is entering locktable synch block in writeLockObj")
+	LockTable.synchronized{
+		if(debugSynch) println(s"$tid entered LockTable synch block in writeLockObj")
+		val owners = LockTable.getOwners(oid)
+		if( owners.size == 0 ){
+		    if( lock.isWriteLocked() || lock.getReadLockCount() > 0 )
+		    	println(s"$tid thinks $oid is free for xlocking, MISTAKE")		//sanity check
+		    LockTable.addOwner(oid,tid)
+		    writeLock.lock()
+		    writeLocks += (oid -> writeLock)
+		    locked = true
+		} // if
+		else if( writeLock.isHeldByCurrentThread() ){
+		     println(s"$tid already holds writeLock for $oid, don't lock again.")
+		     locked = true
+		} // else if
+	} // synch
+	if(debugSynch) println(s"$tid exited LockTable synch block in writeLockObj")
+	if( !locked ){
+												// get here means you can't lock without waiting
+	    val noDeadlock = WaitsForGraph.checkForDeadlocks(tid, oid, lock, READ)		   // check to make sure waiting won't cause a deadlock
+	    if( noDeadlock ){
+	    	println(s"$tid is waiting to writeLock $oid outside of synch block")
+		writeLock.lock()
+		writeLock.unlock()
+		locked = writeLockObj(oid)
+	    }
+	} // if
+	locked
+    } // writeLockObj
+
     //::
     /**
      */
-    def writeLockObj(oid: Int, lock: ReentrantReadWriteLock)
+    def oldWriteLockObj(oid: Int, lock: ReentrantReadWriteLock)
     {
 	val writeLock = lock.writeLock()
 	var notLocked   = true
@@ -250,7 +318,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		    notLocked = false
 		} // if
 		else if( lock.writeLock().isHeldByCurrentThread() ) notLocked = false
-	} // synchronized
+	} // synchronized	
 	if(debugSynch) println(s"$tid exited LockTable synch block in writeLockObj")
 	//println(s"transaction $tid has left synchronized block to writeLockObj")
 	if( notLocked ){
@@ -263,8 +331,53 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     } // writeLockObj()
     
 
-    def readLockObj(oid: Int, lock: ReentrantReadWriteLock) 
+    def readLockObj(oid: Int): Boolean = 
     {
+	val locked = false
+	val lock = LockTable.getObjLock(oid)
+	val readLock = lock.readLock()
+    	if(debugSynch) println(s"$tid entering LOckTable synch block in readLockObj")
+	LockTable.synchronized{
+		if(debugSynch) println(s"$tid entered LockTable synch block in readLockObj")
+		val owners = LockTable.getOwners(oid)
+		if( owners.size == 0 ){							//we don't see that anybody owns the lock
+		    println(s"$tid is readLocking $oid because it has no owners.")
+		    if( lock.getReadLockCount() < 0 || lock.isWriteLocked() )
+		    	println(s"MISTAKE: lock table and lock object don't agree.")	// sanity check
+		    LockTable.addOwner(oid, tid)
+		    readLock.lock()
+		    readLocks += (oid -> readLock)
+		    locked = true
+		} // if
+		else if( !lock.isWriteLocked() ){
+		     if( tid in owners ){
+		     	 println(s"$tid is already readlocked on this object.")		// don't want to readLock an object we already readLocked
+		     } // if
+		     else{
+		         println(s"$tid is readLocking $oid because it is shared locked.")	//we want to share in the locking
+		     	 LockTable.addOwner(oid,tid)
+		     	 readLock.lock()
+		     } // else
+		     locked = true
+		} // else if
+	} // synchronized
+	if(debugSynch) println(s"$tid exited LockTable synch block in readLockObj")
+	if(!locked){
+												// get here means can't get lock without waiting
+	    val noDeadlock = WaitsForGraph.checkForDeadlocks(tid, oid, lock, READ)		   // check to make sure waiting won't cause a deadlock
+	    if( noDeadlock ){
+	    	println(s"$tid is waiting to readLock $oid outside of a synchronized block.")
+	    	readLock.lock()
+		readLock.unlock()
+		locked = readLockObj(oid)
+	    } // if
+	} // if
+	locked 
+    } // readLockObj
+    
+    def oldReadLockObj(oid: Int, lock: ReentrantReadWriteLock) 
+    {
+
 	val writeLocked = lock.isWriteLocked()
 	val readLock    = lock.readLock()
 	var notLocked = true
