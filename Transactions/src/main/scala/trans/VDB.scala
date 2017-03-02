@@ -1,4 +1,4 @@
-/*
+/*A
 	TODO:
 		find a thread safe collection to use
 		implement the deadlock checker
@@ -34,7 +34,9 @@ import Operation._
 
 object TSTable
 {
-    private val debugSynch = true
+
+    private val DEBUG	   = false
+    private val debugSynch = false
     
     /** Associative map of read time stamps. K => V :: (oid => read_TS)
      */
@@ -77,7 +79,9 @@ object TSTable
 
 object WaitsForGraph
 {
-    private val debugSynch = true
+
+    private val DEBUG      = false
+    private val debugSynch = false
     
     var graph = new Graph()
 
@@ -95,48 +99,81 @@ object WaitsForGraph
     {
     	val READ = 0
 	val WRITE = 1
-	var ret = true
+	var noDeadLock = false
 	var req = ""
 	if(readOrWrite == READ) req = "readLock" else req = "writeLock"
 	if(debugSynch) println(s"$tid entering WaitsForGraph synch block in ck4DeadLocks")
 	synchronized{
 		if(debugSynch) println(s"$tid entered WaitsForGraph synch block in ck4DeadLock")
-		if( LockTable.getOwners(oid).size == 0 ){
-		    println(s"Found empty owners set for $oid")
-		    if(lock.isWriteLocked() || lock.getReadLockCount() > 0 ) println(s"Lock disagrees with table.") // sanity check
+		val writeLocked = lock.isWriteLocked()
+		val noReaders   = lock.getReadLockCount() == 0
+		val noOwners    = !writeLocked && noReaders
+		if( noOwners ){	    
+		    if( DEBUG ) println(s"In Ck4DeadLock found an open object in $oid")
+		    noDeadLock = true
 		} // if		
 		else if( lock.writeLock.isHeldByCurrentThread() ){
-		     println(s"Found that $oid was already writeLocked by $tid")
-		} // else if	ret = true
+		    if( DEBUG ) println(s"In Ck4DeadLock Found that $oid was already writeLocked by $tid")
+		    noDeadLock = true
+		} // else if	
 		else if( readOrWrite == READ && !lock.isWriteLocked() ){
-		     println(s"Found that $oid is shared locked and $tid wants to share the lock.")
+		     if( DEBUG ) println(s"In Ck4DeadLock Found that $oid is shared locked and $tid wants to share the lock.")
+		     noDeadLock = true
 		} // ese if 
 		else {
-		     println(s"Cking deadlocks for $tid request to $req $oid. Current waits for graph: ")
-		     printG()
-		     println("")
-		     for( owner <- LockTable.getOwners(oid) ) graph.addEdge(tid, owner)
-		     println(s"edges added temporarilly to evaluate $req request from $tid to lock $oid")
-		     if( graph.hasCycle() ){
-		     	 ret = false
-         		 for( owner <- LockTable.getOwners(oid) ) graph.removeEdge(tid, owner)
-			 println(s"${tid}'s request to $req $oid DENIED ")
+		     if( DEBUG ) {
+		     	 println(s"Cking deadlocks for $tid request to $req $oid. Current waits for graph: ")
+		     	 printG()
+		    	 println("")
 		     }
-		     else{
-			println(s"${tid}'s request to $req $oid GRANTED. Current waits for graph: ")
-			printG()
-			println("")
-		     }	
-		} // 
+		     for( owner <- LockTable.getOwners(oid) ) graph.addEdge(tid, owner)
+		     //println(s"edges added temporarilly to evaluate $req request from $tid to lock $oid")
+		     if( graph.hasCycle() ){
+         	     	 for( owner <- LockTable.getOwners(oid) ) graph.removeEdge(tid, owner)
+			 if(DEBUG)println(s"${tid}'s request to $req $oid DENIED ")
+		     }
+		     else if( DEBUG ){
+		     	  println(s"${tid}'s request to $req $oid GRANTED. Current waits for graph: ")
+			  noDeadLock = true
+		     }
+		} // else
 	} // synchronized
 	if(debugSynch) println(s"$tid exited WaitsForGraph synch block in ck4DeadLock")
-	ret
+	noDeadLock
+    }
+}
+
+object ScheduleTracker
+{
+    private val sched = ArrayBuffer[Op]()
+
+    def addOp(op: Op){
+    	synchronized{
+	    sched += op
+	} // synch
+    } // addOp
+
+    def getSchedule(): Array[Op] =
+    {
+	synchronized{
+	    sched.toArray	
+	} // synch
+
+    } // getSched
+
+    def purgeTransaction(tid: Int)
+    {
+	synchronized{
+	    sched --= sched.filter(op => op._2 == tid)
+	} // synch
     }
 }
 
 object LockTable
 {
-    private val debugSynch = true
+
+    private val DEBUG	   = false
+    private val debugSynch = false
 
     /** Associative map of locks associated with objects K => V :: (oid => lock)
      */
@@ -146,10 +183,14 @@ object LockTable
      */
     private var owners = new HashMap [Int, scala.collection.mutable.Set[Int]] ()
 
+    /** 
+     */
+    private var waiters = new HashMap [Int, scala.collection.mutable.Set[Int] ] ()
+
     /** Retrieve the lock associated with an object
      */
     def getObjLock(oid: Int) : ReentrantReadWriteLock = {
-    	var lock = new ReentrantReadWriteLock(true)
+    	var lock = new ReentrantReadWriteLock()
 	if(debugSynch) println(s"entering Lockable synch block in getObjLock")
     	synchronized{
 		if(debugSynch) println(s"entered Lockable synch block in getObjLock")
@@ -177,18 +218,77 @@ object LockTable
 
     def addOwner(oid: Int, tid: Int)
     {
-    	//println("entering synchronized block to addOwner")
 	if(debugSynch) println(s"$tid entering Locktable synch block in addOwner")
 	synchronized{
 		if(debugSynch) println(s"$tid entered Lockable synch block in addOwner")
-		//println("entered synchronized block to addOwner")
 		if(owners contains oid) owners(oid) += tid
-		else owners(oid) = scala.collection.mutable.Set(tid)
+		else {
+		     //println(s"$tid adding new owner entry in LockTable for $oid.")
+		     owners(oid) = scala.collection.mutable.Set(tid)
+		     //println(s"$owners(oid)")
+		}
 	}
 	if(debugSynch) println(s"$tid exited Lockable synch block in addOwner")
 	//println("left synchronized block to addOwner")
     }
 
+    //::
+    /**/
+    def addWaiter(oid: Int, tid: Int)
+    {
+    	if(debugSynch) println(s"$tid entering Locktable synch block in addWaiter")
+	synchronized{
+	    if(debugSynch) println(s"$tid entered Locktable synch block in addWaiter")
+	    if( waiters contains oid) waiters(oid) += tid
+	    else waiters(oid) = scala.collection.mutable.Set(tid)
+	} // synch
+	if(debugSynch) println(s"$tid exited Locktable synch block in addWaiter")
+    }
+
+    //::
+    /**/
+    def removeWaiter(oid: Int, tid: Int)
+    {
+	if(debugSynch) println(s"$tid entering Locktable synch block in removeWaiter")
+	synchronized{
+	    if(debugSynch) println(s"$tid entered Locktable synch block in removeWaiter")
+	    if( waiters contains tid) waiters -= oid
+	} // synch
+	if(debugSynch) println(s"$tid exited Locktable synch block in removeWaiter")
+    }
+
+    //::
+    /**/
+    def getWaiters(oid: Int): scala.collection.mutable.Set[Int] =
+    {
+	var ret = scala.collection.mutable.Set[Int]()	    	
+        if(debugSynch) println(s"entering Locktable synch block in getWaiters")
+	synchronized{
+		if(debugSynch) println(s"entered Locktable synch block in getWaiters")
+		if(waiters contains oid) ret = waiters(oid).clone
+	} // synch
+	if(debugSynch) println(s"exited Locktable synch block in getWaiters")
+	ret
+    }
+
+    //::
+    /**/
+    def updateWaiters(oid: Int, tid: Int)
+    {
+	val v = tid
+	if(debugSynch) println(s"$tid entering Locktable synch block in updateWaiters")
+	synchronized{
+		if(debugSynch) println(s"$tid entered Locktable synch block in updateWaiters")
+		if(waiters contains oid){
+	    		   for(u <- waiters(oid) ) {
+			   	 //println(s"updating wait graph with edge $u -> $v")
+			   	 WaitsForGraph.addEdge(u,v)
+			   }
+		} // if
+	} // synch
+	if(debugSynch) println(s"$tid exited Locktable synch block in updateWaiters")
+    } // updateWaiters
+    
     /*******************************************************************************
      * Unlock/release the lock on data object oid.
      * @param tid  the transaction id
@@ -196,18 +296,13 @@ object LockTable
      */
     def unlock (tid: Int, oid: Int)
     {
-	if(debugSynch) println(s"$tid entering Locktable synch block in unlock")
-	synchronized{
-	    if(debugSynch) println(s"$tid entered Locktable synch block in unlock")
-	    if( (owners contains oid) && (owners(oid) contains tid) ) {
-	    	owners(oid) -= tid
-		println(s"owners of lock for $oid: ${owners(oid).mkString}")
-		if( owners(oid).size == 0 ) owners = owners - oid
-	    } // if
-	    else if( !(owners contains oid) ) println(s"$tid tried to unlock object $oid which didn't have any owners")
-	    else println(s"$tid tried to unlock object $oid that it didn't own.")
-	} // synchronized
-        if(debugSynch) println(s"$tid exited Locktable synch block in unlock")
+	if( (owners contains oid) && (owners(oid) contains tid) ) {
+	    owners(oid) -= tid
+	    //println(s"owners of lock for $oid: ${owners(oid).mkString}")
+	    if( owners(oid).size == 0 ) owners = owners - oid
+	} // if
+	else if( !(owners contains oid) && DEBUG) println(s"$tid tried to unlock object $oid which didn't have any owners")
+	else if( DEBUG )println(s"$tid tried to unlock object $oid that it didn't own.")
     } // ul
 
     /*******************************************************************************
@@ -239,9 +334,9 @@ object VDB
     type Record = Array [Byte]                           // record type
     type LogRec = Tuple4 [Int, Int, Record, Record]      // log record type (tid, oid, v_old, v_new)
     
-    private val DEBUG         = true                     // debug flag
-    private val debugSynch    = true
-    private val CSR_TESTING   = false 
+    private val DEBUG         = false                    // debug flag
+    private val debugSynch    = false
+    private val CSR_TESTING   = true 
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
@@ -253,7 +348,7 @@ object VDB
 
     private var lastCommit = -1
 
-    	
+    var numWrites = 0	
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
      */
@@ -279,47 +374,64 @@ object VDB
             map += i -> i 
         } // for
     } // initCache
-
-     
+    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid' from the database.
      *  @param tid  the transaction performing the write operation
      *  @param oid  the object/record being written
      */
     def read (tid: Int, oid: Int): (Record, Int) =
-    	{
-		if (DEBUG) println (s"read ($tid, $oid)")
-		val op = (r,tid,oid)
-		
-		//if (CSR_TESTING) {
-	  	   	   
-			//var bb = ByteBuffer.allocate(12)
-	  	 	//get a new ByteBuffer
-	   		//bb.putInt(0)
-	   		//bb.putInt(tid)
-	   		//bb.putInt(oid)
-	   		//var ba = bb.array()
-	   		//sched_file.seek(sched_file.length())                //make sure to be appending
-	   		//sched_file.write(ba)
-	   		//println("FlushlogBuff")
-	   		//println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
-		//} // if
-		val pageNum = oid/recs_per_page
-		var cpi = 0
-		var pg = new Page()
-		var rec: Record = null
-		if(map contains (pageNum)){				// is the page in the cache already? 
+    {
+		synchronized{
+		    if (DEBUG) println (s"read ($tid, $oid)")
+		    val op = (r,tid,oid)
+		    if (CSR_TESTING) ScheduleTracker.addOp(op)
+		    val pageNum = oid/recs_per_page
+		    var cpi = 0
+		    var pg = new Page()
+		    var rec: Record = null
+		    if(map contains (pageNum)){				// is the page in the cache already? 
 			cpi = map(pageNum)         			// the cache page index
 			pg = cache(cpi)                        		// page in cache
 			rec = pg.p(oid % recs_per_page)			//record location in cache page
 			return (rec,cpi)
-		} // if
-		else							// the page is not in the cache 
-		{
+		    } // if
+		    else							// the page is not in the cache 
+		    {
 			return cachePull(oid)
-		} // else
-		//(rec, cpi)
-	} // read
+		    } // else
+		    //(rec, cpi)
+		} // synch
+    } // read
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Read the record with the given 'oid' from the database.
+     *  @param tid  the transaction performing the write operation
+     *  @param oid  the object/record being written
+     */
+    def reread (tid: Int, oid: Int): (Record, Int) =
+    {
+		synchronized{
+		    if (DEBUG) println (s"reread ($tid, $oid)")
+		    val op = (r,tid,oid)
+		    //if (CSR_TESTING) ScheduleTracker.addOp(op)
+		    val pageNum = oid/recs_per_page
+		    var cpi = 0
+		    var pg = new Page()
+		    var rec: Record = null
+		    if(map contains (pageNum)){				// is the page in the cache already? 
+			cpi = map(pageNum)         			// the cache page index
+			pg = cache(cpi)                        		// page in cache
+			rec = pg.p(oid % recs_per_page)			//record location in cache page
+			return (rec,cpi)
+		    } // if
+		    else							// the page is not in the cache 
+		    {
+			return cachePull(oid)
+		    } // else
+		    //(rec, cpi)
+		} // synch
+    } // read
 
 	//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/**  A method to pull a page from the PDB into the cache
@@ -346,14 +458,12 @@ object VDB
 	{
 
 		if (map.nonEmpty){
-			val num = Random.nextInt(map.size)
-			val key = map.keys.toSeq
-			var num1 = key(num)
-			val v = map.getOrElse(num1,0)
-			val elem = (num1, v)
-			//val elem = map.last
-			PDB.write(elem._1,cache(elem._2))
-			elem
+			val rand = Random.nextInt(map.size)				// the random victim
+			val keys = map.keys.toSeq					// a sequence containing the page numbers in the cache 
+			var k = keys(rand)						// the randomly selected cache page number
+			val v = map.getOrElse(k,0)					// the cpi for the randomly selected page number from the cache
+			PDB.write(k,cache(v))						// PDB.write(page number, page value)
+			(k,v)
 		}
 		else{
 			var free = 0
@@ -369,7 +479,6 @@ object VDB
 			} // if
 			(-1,free)						// non-full cache return value
 		}
-
 	}
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Write the 'newVal' record to the database.
@@ -378,23 +487,11 @@ object VDB
      */
     def write (tid: Int, oid: Int, newVal: Record)
     {
-        if (DEBUG) println (s"write ($tid, $oid, $newVal)")
+	synchronized{
+	numWrites+=1
+	if (DEBUG) println (s"write ($tid, $oid, $newVal)")
 	val op = (w,tid,oid)
-	if (CSR_TESTING) {
-	   //SCHEDULE_TRACKER += op
-	   //val sched_file = new RandomAccessFile("sched_file","rw")
-	   //var bb = ByteBuffer.allocate(12)
-	   //get a new ByteBuffer
-	   //bb.putInt(1)
-	   //bb.putInt(tid)
-	   //bb.putInt(oid)
-	   //var ba = bb.array()
-	   //sched_file.seek(sched_file.length())                //make sure to be appending
-	   //sched_file.write(ba)
-	   //println("FlushlogBuff")
-	   //println(s"SCHEDULE_TRACKER from write method: ${SCHEDULE_TRACKER}")
-	} // if
-
+	if (CSR_TESTING) ScheduleTracker.addOp(op)
 	if (newVal == null) println(s"Cannot write null values to the database.")
 	else{
 		val (oldVal, cpi) = read (tid, oid)			//get the old value and it's cpi from read
@@ -410,8 +507,39 @@ object VDB
 	        val pg		= cache(map(pageNumber))	 	//Note: data value should be cached by read 
 	        pg.p(recOffset) = newVal				//change the old value in the page to the new value
 	}
-        
+	} // synch
     } // write
+
+    //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+    /** Write the 'newVal' record to the database.
+     *  @param tid  the transaction performing the write operation
+     *  @param oid  the object/record being written
+     */
+    def rewrite (tid: Int, oid: Int, newVal: Record)
+    {
+	synchronized{
+	numWrites-=1
+	if (DEBUG) println (s"rewrite ($tid, $oid, $newVal)")
+	val op = (w,tid,oid)
+	//if (CSR_TESTING) ScheduleTracker.addOp(op)					//don't record in the schedule tracker
+	if (newVal == null) println(s"Cannot write null values to the database.")
+	else{
+		val (oldVal, cpi) = reread (tid, oid)			//get the old value and it's cpi from read
+		val recOffset 	  = oid % recs_per_page			
+		val pageNumber 	  = oid / recs_per_page
+		
+		//if(DEBUG) println("old logBuf.size: " + logBuf.size)
+		
+	        //logBuf += ((tid, oid, oldVal, newVal))			// redo's don't go into the log, do they? 
+
+		//if(DEBUG) println("new logBuf.size: " + logBuf.size)
+		
+	        val pg		= cache(map(pageNumber))	 	//Note: data value should be cached by read 
+	        pg.p(recOffset) = newVal				//change the old value in the page to the new value
+	}
+	} // synch
+    } // write
+
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Begin the transaction with id 'tid'.
@@ -442,6 +570,7 @@ object VDB
 	//println(s"transaction $tid entering synchronized block to commit")
 	if(debugSynch) println(s"$tid entering VDB synchronized block")
 	synchronized{
+		if(DEBUG) println(s"commit($tid)")
 		if(debugSynch) println(s"$tid entered VDB synchronized block")
 		logBuf += ((tid, COMMIT, null, null))
         	if (DEBUG) {
@@ -450,8 +579,7 @@ object VDB
 		}
 		flushLogBuf()			 				//flush the logBuf
 		lastCommit = logBuf.length - 1					//update the lastCommit pointer
-       		WaitsForGraph.removeNode(tid)
-		println(s"$tid committed from VDB")
+		//println(s"$tid committed from VDB")
 		//if( DEBUG ) print_log()
 	} // synch
 	if(debugSynch) println(s"$tid exited VDB synchronized block")
@@ -521,31 +649,34 @@ object VDB
      */
     def rollback (tid: Int)
     {
-        if (DEBUG) println (s"rollback ($tid)")
-        logBuf += ((tid, ROLLBACK, null, null))
-	var i = logBuf.length-2
-	var rolling = true
-	var data = Tuple4(0,0,Array.ofDim[Byte](record_size) ,Array.ofDim[Byte](record_size))
-	while(rolling && i >= 0){
-
-		val (rec_tid, oid, oldVal, newVal) = logBuf(i)
-		if( rec_tid == tid ){
-		    if( oid != BEGIN ){
-		    	val page       = oid/32
-		    	if(map contains page){
-		    		  write(tid, oid, oldVal);
-		    	}// if
+	synchronized{
+		if (DEBUG) println (s"rollback ($tid)")
+        	logBuf += ((tid, ROLLBACK, null, null))
+		var i = logBuf.length-2
+		var rolling = true
+		var data = Tuple4(0,0,Array.ofDim[Byte](record_size) ,Array.ofDim[Byte](record_size))
+		while(rolling && i >= 0){
+		    val (rec_tid, oid, oldVal, newVal) = logBuf(i)
+		    if( rec_tid == tid ){
+		    	if( oid != BEGIN ){
+		    	    val page       = oid/32
+		    	    if(map contains page){
+		    	    rewrite(tid, oid, oldVal);
+		    	} // if
 		    	else{
-				val (rec,cpi) = cachePull(page)
-				write(tid,oid,oldVal)
-			}// else
-		    }// if
+			   val (rec,cpi) = cachePull(page)
+			   rewrite(tid,oid,oldVal)
+		    	} // else
+		    } // if
 		    else rolling = false
-		}// if
-		i-=1
-	}// while
-        WaitsForGraph.removeNode(tid)
+		    } // else
+		    i-=1
+		}// while
+        	WaitsForGraph.removeNode(tid)
+		ScheduleTracker.purgeTransaction(tid)
+    	} // synch
     } // rollback
+        
 
     def mydefault0 = -1
 
@@ -573,16 +704,9 @@ object PDB
 	private val pages = 15
 	private val recs_per_page = 32
 	private val record_size = 128
-
-	try{
-		val store = new RandomAccessFile(store_file,"rw")
-		val log = new RandomAccessFile(log_file,"rw")
-	}
-	catch{
-		case iae  : IllegalArgumentException => println("IllegalArgumentException: " + iae)
-		case fnfe : FileNotFoundException    => println("FileNotFOundException in PDB: " + fnfe)
-		case se   : SecurityException        => println("SecurityException: " + se)
-	}
+	val store = new RandomAccessFile(store_file,"rw")
+	val log = new RandomAccessFile(log_file,"rw")
+	
 
 	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/** The `Page` case class
@@ -592,8 +716,10 @@ object PDB
 		val p = Array.ofDim [VDB.Record] (recs_per_page)
 		override def toString = s"Page( + ${p.deep} + )\n"
 	} // page class
-	def write (pageNum:Int, page: VDB.Page) ={
-		var store = new RandomAccessFile(PDB.store_file,"rw")
+	
+	def write (pageNum:Int, page: VDB.Page)
+	{
+		//var store = new RandomAccessFile(PDB.store_file,"rw")
 		store.seek(pageNum*recs_per_page*record_size)
 		var p = page.p
 		for (i <- p.indices) {                //make sure to be appending
@@ -605,7 +731,7 @@ object PDB
 	/** Initialize the store
 	  */
 	def initStore() ={
-		val store = new RandomAccessFile(store_file,"rw")
+		//val store = new RandomAccessFile(store_file,"rw")
 		for (i <- 0 until pages) {
 			val pg = Page()
 			for (j <- 0 until recs_per_page) pg.p(j) = genRecord(i, j)
@@ -644,7 +770,7 @@ object PDB
 	def fetchPage(page: Int): VDB.Page =
 	{
 		//println("reading from store")
-		val store = new RandomAccessFile(PDB.store_file,"rw")
+		//val store = new RandomAccessFile(PDB.store_file,"rw")
 		//println(s"size of store: ${store.length()}")
 		var buf = Array.ofDim[Byte](record_size)
 		store.seek(page * recs_per_page * record_size)
@@ -698,13 +824,16 @@ object VDBTest extends App
     
     VDB.commit(2);
 
+    PDB.fetchPage(2)
+
 } // VDBTest
 
 object VDBTest2 extends App
 {
- 	val OPS_PER_TRANSACTION  = 20
-	val TOTAL_TRANSACTIONS =30
+ 	val OPS_PER_TRANSACTION  = 10
+	val TOTAL_TRANSACTIONS   = 100
     	val TOTAL_OBJECTS	 = 480
+	val TOTAL_OPS 		 = OPS_PER_TRANSACTION * TOTAL_TRANSACTIONS
 	val _2PL = 0
 	val TSO  = 1
 	PDB.initStore()
@@ -715,42 +844,12 @@ object VDBTest2 extends App
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
 	println("all transactions started")
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
-	println("all transactions finished")
-	
-	//println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER*************************")
-	//println(s"\n\n\n\n********FINAL SCHEDULE_TRACKER: ${VDB.SCHEDULE_TRACKER}*************************")
-	//var raf = new RandomAccessFile("sched_file","rw")
-
-	//val sched = new Schedule( VDB.SCHEDULE_TRACKER.toList )
-	//println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
+	Thread.sleep(12000)
+	println("::////////////////////////////////\nall transactions finished\n\n\n\n")
+	println(s"Schedule length correct : ${ScheduleTracker.getSchedule().toList.length == TOTAL_OPS+VDB.numWrites}")
+    	val schedule = new Schedule( ScheduleTracker.getSchedule().toList )
+	println(s"Schedule: $schedule")
+    	println(s"Resulting schedule is CSR: ${schedule.isCSR(Transaction.nextCount())}")
+ 
 	System.exit(0)
-} // VDBTest2
-
-object VDBTest2_2 extends App
-{
-     //val TOTAL_TRANSACTIONS   = 5
-     //var raf = new RandomAccessFile("sched_file","rw")
-     //raf.seek(0)						
-     //var buf   = Array.ofDim[Byte](12)
-     //var read  = raf.read(buf)
-     //var s = ArrayBuffer[(Char,Int,Int)]()
-     //while( read != -1 ){
-     	    //println(s"read: $read")
-     	    //println(s"count: $count")
-     	    //var bb = ByteBuffer.allocate(12)
-	    //bb.put(buf);
-	    //bb.position(0)
-	    //var firstNum = bb.getInt()
-	    //var firstLet = r
-	    //if( firstNum == 0 ) firstLet = r
-	    //else firstLet = w
-	    //val tup = (firstLet,bb.getInt(),bb.getInt())
-	    //s += tup
-	    //read = raf.read(buf)
-     //}// while
-     //val sched = new Schedule( s.toList )
-     //println(sched)
-     //println(s"This was a CSR Schedule: ${sched.isCSR(TOTAL_TRANSACTIONS)}") 
-} // VDBTest2_2
-
-    
+} // VDBTest2B

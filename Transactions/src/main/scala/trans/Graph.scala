@@ -31,8 +31,9 @@ class Graph (ch:      Array [Set [Int]] = Array.ofDim (0),
 
     /** The map from label to the set of vertices with the label
      */
-    //val labelMap = buildLabelMap (label)
+    //var labelMap = buildLabelMap (label)
     var labelMap = Map[Int, Int]()
+    
     /** The adjacency list that we can change...
      */
     var adjList = ch 
@@ -185,8 +186,7 @@ class Graph (ch:      Array [Set [Int]] = Array.ofDim (0),
 	val R_D = 2;
 	
         val color = Array.fill (adjList.length)(G_N)    // traffic light colors: GreeN, YelloW, ReD
-	println(s"color.length: ${color.length}")
-
+	
         for (v <- color.indices if color(v) == G_N && loopback (v)) return true 
 
         /*  Search the descendants of vertex 'u' to see if there is a loopback.
@@ -225,10 +225,8 @@ class Graph (ch:      Array [Set [Int]] = Array.ofDim (0),
     }
 
     def removeEdge(u: Int, v: Int){
-    	println(s"removing edge ($u,$v)")
     	val uPos = labelMap(u)
     	adjList(uPos)=adjList(uPos)-v
-	println(s"removed edge from $u to $v")
     }
 
     def addNode(u: Int)
