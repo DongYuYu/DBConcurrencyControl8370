@@ -17,7 +17,6 @@
  */
 
 package trans
-
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Operation` object defines the 'Op' type and read (r) and write (w) operation-types.
  */
@@ -148,9 +147,7 @@ object Schedule
 						rand.nextInt(nObjs))).toList
         return new Schedule(s)
     } // genSchedule	
-
  } // Schedule object
-
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `ScheduleTest` object is used to test the `Schedule` class.

@@ -38,18 +38,6 @@ object Transaction
 
 import Transaction._
 
-object SynchObject
-{
-    var synch = 0;
-
-    def incSynch(){
-    	synch += 1
-    }
-
-    def decSynch(){
-    	synch -= 1
-    }
-}
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` class
   *  @param sch  the schedule/order of operations for this transaction.
@@ -82,6 +70,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		for (i <- sch.indices) {
 		    val (op, tid_1, oid) = sch(i)
 		    if(CLAIRVOYANCE)println(s"($op, $tid, $oid)")
+
 	    	    if(!ROLLBACK){
 			val (op,tid,oid) = sch(i)
             	    	//if(DEBUG) println (sch(i))
@@ -158,7 +147,6 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	}
 
     } // rollback
-
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Fills the read/write set for this transaction.
       */
@@ -501,4 +489,4 @@ object TransactionTest extends App {
     println(s"$schedule")
     val csr = schedule.isCSR(Transaction.nextCount())
     println(s"Resulting schedule is CSR: $csr")
-} // TransactionTest object
+}

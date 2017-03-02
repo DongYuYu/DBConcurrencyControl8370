@@ -1,4 +1,4 @@
-/*A
+/*
 	TODO:
 		find a thread safe collection to use
 		implement the deadlock checker
@@ -337,18 +337,19 @@ object VDB
     private val DEBUG         = false                    // debug flag
     private val debugSynch    = false
     private val CSR_TESTING   = true 
+
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
     private val record_size   = 128                      // size of record in bytes
     private val log_rec_size  = 264			 // size of a log record
-    
+
     private val BEGIN    = -1
     private val COMMIT   = -2
     private val ROLLBACK = -3
 
     private var lastCommit = -1
-
     var numWrites = 0	
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
      */
@@ -404,6 +405,7 @@ object VDB
 		} // synch
     } // read
 
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid' from the database.
      *  @param tid  the transaction performing the write operation
@@ -420,6 +422,7 @@ object VDB
 		    var pg = new Page()
 		    var rec: Record = null
 		    if(map contains (pageNum)){				// is the page in the cache already? 
+
 			cpi = map(pageNum)         			// the cache page index
 			pg = cache(cpi)                        		// page in cache
 			rec = pg.p(oid % recs_per_page)			//record location in cache page
@@ -464,6 +467,7 @@ object VDB
 			val v = map.getOrElse(k,0)					// the cpi for the randomly selected page number from the cache
 			PDB.write(k,cache(v))						// PDB.write(page number, page value)
 			(k,v)
+
 		}
 		else{
 			var free = 0
@@ -492,6 +496,7 @@ object VDB
 	if (DEBUG) println (s"write ($tid, $oid, $newVal)")
 	val op = (w,tid,oid)
 	if (CSR_TESTING) ScheduleTracker.addOp(op)
+
 	if (newVal == null) println(s"Cannot write null values to the database.")
 	else{
 		val (oldVal, cpi) = read (tid, oid)			//get the old value and it's cpi from read
@@ -507,6 +512,7 @@ object VDB
 	        val pg		= cache(map(pageNumber))	 	//Note: data value should be cached by read 
 	        pg.p(recOffset) = newVal				//change the old value in the page to the new value
 	}
+<<<<<<< HEAD
 	} // synch
     } // write
 
@@ -540,7 +546,6 @@ object VDB
 	} // synch
     } // write
 
-
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Begin the transaction with id 'tid'.
      *  @param tid  the transaction id
@@ -557,9 +562,8 @@ object VDB
 	    //WaitsForGraph.printG()
 	    //println("")
 	}
-	//println(s"transaction $tid left synchronized block to begin")	
+	//println(s"transaction $tid left synchronized block to begin")	>>>>>>> 3d9ab41adbc5c5ff0ddaccb6ea608289968c9786
     } // begin
-
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Commit the transaction with id 'tid'.
@@ -676,10 +680,7 @@ object VDB
 		ScheduleTracker.purgeTransaction(tid)
     	} // synch
     } // rollback
-        
-
-    def mydefault0 = -1
-
+    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Generate the (i*32+j)th record.
      *  @param i  the page number
@@ -706,7 +707,6 @@ object PDB
 	private val record_size = 128
 	val store = new RandomAccessFile(store_file,"rw")
 	val log = new RandomAccessFile(log_file,"rw")
-	
 
 	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/** The `Page` case class
@@ -719,7 +719,6 @@ object PDB
 	
 	def write (pageNum:Int, page: VDB.Page)
 	{
-		//var store = new RandomAccessFile(PDB.store_file,"rw")
 		store.seek(pageNum*recs_per_page*record_size)
 		var p = page.p
 		for (i <- p.indices) {                //make sure to be appending
@@ -730,8 +729,8 @@ object PDB
 	//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	/** Initialize the store
 	  */
-	def initStore() ={
-		//val store = new RandomAccessFile(store_file,"rw")
+	def initStore()
+	{
 		for (i <- 0 until pages) {
 			val pg = Page()
 			for (j <- 0 until recs_per_page) pg.p(j) = genRecord(i, j)
@@ -770,7 +769,6 @@ object PDB
 	def fetchPage(page: Int): VDB.Page =
 	{
 		//println("reading from store")
-		//val store = new RandomAccessFile(PDB.store_file,"rw")
 		//println(s"size of store: ${store.length()}")
 		var buf = Array.ofDim[Byte](record_size)
 		store.seek(page * recs_per_page * record_size)
@@ -823,9 +821,7 @@ object VDBTest extends App
     for (i <- VDB.logBuf.indices) println(VDB.logBuf(i))
     
     VDB.commit(2);
-
     PDB.fetchPage(2)
-
 } // VDBTest
 
 object VDBTest2 extends App
@@ -834,6 +830,7 @@ object VDBTest2 extends App
 	val TOTAL_TRANSACTIONS   = 50
     	val TOTAL_OBJECTS	 = 480
 	val TOTAL_OPS 		 = OPS_PER_TRANSACTION * TOTAL_TRANSACTIONS
+
 	val _2PL = 0
 	val TSO  = 1
 	PDB.initStore()
@@ -844,7 +841,7 @@ object VDBTest2 extends App
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
 	println("all transactions started")
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
-	Thread.sleep(12000)
+	Thread.sleep(12000) 
 	println("::////////////////////////////////\nall transactions finished\n\n\n\n")
 	println(s"Schedule length correct : ${ScheduleTracker.getSchedule().toList.length == TOTAL_OPS+VDB.numWrites}")
     	val schedule = new Schedule( ScheduleTracker.getSchedule().toList )
