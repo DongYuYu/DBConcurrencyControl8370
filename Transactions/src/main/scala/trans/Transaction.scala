@@ -486,7 +486,7 @@ object TransactionTest extends App {
     //generate transactions
 
     val transactions = Array.ofDim[Transaction](numTrans)
-    for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),_2PL)
+    for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),TSO)
     VDB.initCache()
     for (i <- transactions.indices){
     	transactions(i).start()	

@@ -831,7 +831,7 @@ object VDBTest extends App
 object VDBTest2 extends App
 {
  	val OPS_PER_TRANSACTION  = 10
-	val TOTAL_TRANSACTIONS   = 100
+	val TOTAL_TRANSACTIONS   = 50
     	val TOTAL_OBJECTS	 = 480
 	val TOTAL_OPS 		 = OPS_PER_TRANSACTION * TOTAL_TRANSACTIONS
 	val _2PL = 0
@@ -848,7 +848,7 @@ object VDBTest2 extends App
 	println("::////////////////////////////////\nall transactions finished\n\n\n\n")
 	println(s"Schedule length correct : ${ScheduleTracker.getSchedule().toList.length == TOTAL_OPS+VDB.numWrites}")
     	val schedule = new Schedule( ScheduleTracker.getSchedule().toList )
-	println(s"Schedule: $schedule")
+	println(s"$schedule")
     	println(s"Resulting schedule is CSR: ${schedule.isCSR(Transaction.nextCount())}")
  
 	System.exit(0)
