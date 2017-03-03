@@ -463,7 +463,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 object TransactionTest extends App {
     private val _2PL = 0
     private val TSO = 1
-    private val numTrans = 4
+    private val numTrans = 
     private val numOps   = 4
     private val numObjs  = 15
     
@@ -483,7 +483,7 @@ object TransactionTest extends App {
     	transactions(i).join()
     } // for
 
-    Thread.sleep(3000)
+    Thread.sleep(6000)
     
     val schedule = new Schedule( ScheduleTracker.getSchedule().toList )
     println(s"$schedule")

@@ -512,7 +512,6 @@ object VDB
 	        val pg		= cache(map(pageNumber))	 	//Note: data value should be cached by read 
 	        pg.p(recOffset) = newVal				//change the old value in the page to the new value
 	}
-<<<<<<< HEAD
 	} // synch
     } // write
 
@@ -562,7 +561,7 @@ object VDB
 	    //WaitsForGraph.printG()
 	    //println("")
 	}
-	//println(s"transaction $tid left synchronized block to begin")	>>>>>>> 3d9ab41adbc5c5ff0ddaccb6ea608289968c9786
+	//println(s"transaction $tid left synchronized block to begin")
     } // begin
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -850,3 +849,4 @@ object VDBTest2 extends App
  
 	System.exit(0)
 } // VDBTest2B
+  
