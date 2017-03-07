@@ -45,8 +45,8 @@ import Transaction._
   */
 class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 {
-    private val CLAIRVOYANCE = true
-    private val DEBUG       = true					// debug flag
+    private val CLAIRVOYANCE = false
+    private val DEBUG       = false					// debug flag
     private var tid         = nextCount ()        		    		// tarnsaction identifier
     private var rwSet       = Map[Int, Array[Int]]()		    		// the read write set : [oid, (num_reads, num_writes)]
     private var readLocks   = Map [Int, ReentrantReadWriteLock.ReadLock ]()	// (oid -> readLock)  read locks we haven't unlocked yet
@@ -251,7 +251,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		writeLock.lock()
 		writeLocks += (oid -> writeLock)
 		locked = true
-		println(s"$tid got to writeLock $oid b/c it had no owners.")
+		if( DEBUG ) println(s"$tid got to writeLock $oid b/c it had no owners.")
 	    } // if
 	    else if( writeLock.isHeldByCurrentThread() ){
 		 if( DEBUG ) println(s"$tid already holds writeLock for $oid, don't lock again.")
@@ -499,9 +499,9 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 object TransactionTest extends App {
     private val _2PL = 0
     private val TSO = 1
-    private val numTrans = 11
-    private val numOps   = 4
-    private val numObjs  = 5
+    private val numTrans = 50
+    private val numOps   = 10
+    private val numObjs  = 480
     private val totalOps = numOps * numTrans
     
     //val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)

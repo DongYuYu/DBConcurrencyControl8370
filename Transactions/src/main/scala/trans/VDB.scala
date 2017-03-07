@@ -80,7 +80,7 @@ object TSTable
 object WaitsForGraph
 {
 
-    private val DEBUG      = true
+    private val DEBUG      = false
     private val debugSynch = false
     
     var graph = new Graph()
@@ -840,13 +840,12 @@ object VDBTest2 extends App
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
 	println("all transactions started")
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
-	Thread.sleep(12000) 
+	
 	println("::////////////////////////////////\nall transactions finished\n\n\n\n")
 	println(s"Schedule length correct : ${ScheduleTracker.getSchedule().toList.length == TOTAL_OPS+VDB.numWrites}")
     	val schedule = new Schedule( ScheduleTracker.getSchedule().toList )
 	println(s"$schedule")
     	println(s"Resulting schedule is CSR: ${schedule.isCSR(Transaction.nextCount())}")
  
-	System.exit(0)
 } // VDBTest2B
   
