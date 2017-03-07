@@ -80,7 +80,7 @@ object TSTable
 object WaitsForGraph
 {
 
-    private val DEBUG      = false
+    private val DEBUG      = true
     private val debugSynch = false
     
     var graph = new Graph()
@@ -334,7 +334,7 @@ object VDB
     type Record = Array [Byte]                           // record type
     type LogRec = Tuple4 [Int, Int, Record, Record]      // log record type (tid, oid, v_old, v_new)
     
-    private val DEBUG         = false                    // debug flag
+    private val DEBUG         = true                    // debug flag
     private val debugSynch    = false
     private val CSR_TESTING   = true 
 

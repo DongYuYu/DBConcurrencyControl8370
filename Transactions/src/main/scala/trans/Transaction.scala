@@ -23,6 +23,7 @@ import Operation._
 import scala.collection.mutable.{ArrayBuffer, Map, Set}
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import scala.util.control.Breaks._
+import java.util.concurrent.TimeUnit
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` companion object
   */
@@ -44,9 +45,9 @@ import Transaction._
   */
 class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 {
-    private val CLAIRVOYANCE = false
-    private val DEBUG       = false					// debug flag
-    private val tid         = nextCount ()        		    		// tarnsaction identifier
+    private val CLAIRVOYANCE = true
+    private val DEBUG       = true					// debug flag
+    private var tid         = nextCount ()        		    		// tarnsaction identifier
     private var rwSet       = Map[Int, Array[Int]]()		    		// the read write set : [oid, (num_reads, num_writes)]
     private var readLocks   = Map [Int, ReentrantReadWriteLock.ReadLock ]()	// (oid -> readLock)  read locks we haven't unlocked yet
     private var writeLocks  = Map [Int, ReentrantReadWriteLock.WriteLock]() 	// (oid -> writeLock) write locks we haven't unlocked yet 
@@ -54,7 +55,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     private val WRITE       = 1
     private val _2PL        = 0
     private val TSO         = 1
-    private var ROLLBACK    = false
+    private var ROLLBACK    = true
     private val debugSynch  = false
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -62,26 +63,21 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     override def run ()
     {
-	Thread.sleep(100)
-	begin()
-    	if(concurrency == _2PL) fillReadWriteSet()
-        breakable{
-		//println(s"$sch")
+	while(ROLLBACK){						//note: ROLLBACK defaults to true so that we can initialize the running while loop
+	    ROLLBACK = false
+	    begin()
+	    breakable{
 		for (i <- sch.indices) {
+		    //if(DEBUG) println(s"$tid starting op at sch index $i")
 		    val (op, tid_1, oid) = sch(i)
 		    if(CLAIRVOYANCE)println(s"($op, $tid, $oid)")
-
-	    	    if(!ROLLBACK){
-			val (op,tid,oid) = sch(i)
-            	    	//if(DEBUG) println (sch(i))
-            	    	if (op == r) read (oid)
-            	    	else         write (oid, VDB.str2record (sch(i).toString))
-	    	    } // if
-	    	    else break   
+            	    if (op == r) read (oid)
+            	    else         write (oid, VDB.str2record (sch(i).toString))
+	    	    if(ROLLBACK) break
         	} // for
-	} // breakable
-        if(!ROLLBACK) commit ()
-	else if( DEBUG ) println(s"$tid is dead.")
+	    } // breakable
+	} // while
+        commit ()
     } // run
 
 
@@ -109,6 +105,8 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def begin ()=
     {
+	Thread.sleep(100)
+        if(concurrency == _2PL) fillReadWriteSet()
         VDB.begin (tid)
     } // begin
 
@@ -140,13 +138,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
             VDB.rollback (tid)
             releaseReadLocks()
             releaseWriteLocks()
-	    val newT = new Transaction(this.sch, this.concurrency)
-	    newT.join()
-	    newT.start()
-	    //newT.join()
+	    emptyReadWriteSet()
+	    tid = nextCount()
 	}
-
     } // rollback
+    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Fills the read/write set for this transaction.
       */
@@ -167,6 +163,15 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	      } // else
 	}// for
     } // fillReadWriteSet
+
+    def emptyReadWriteSet()
+    {
+	for(oid <- rwSet.keys) {
+	    rwSet(oid)(READ)  = 0
+	    rwSet(oid)(WRITE) = 0
+	}
+	
+    }
 
     //::
     /**
@@ -219,31 +224,40 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     /**/
     def writeLockObj(oid: Int): Boolean =
     {
+	Thread.sleep(100)
+	if(DEBUG){
+	    println(s"readLocks for $tid entering writeLockObj: ")
+	    for(oid <- readLocks.keys) print(s"$tid,$oid ")
+	    println("")
 
-	var locked      = false
-	val lock        = LockTable.getObjLock(oid)
-	val writeLock   = lock.writeLock()
+	    println(s"writeLocks for $tid entering writeLockObj: ")
+	    for(oid <- writeLocks.keys) print(s"$tid,$oid ")
+	    println("")
+	}
+	var locked        = false
+	val lock          = LockTable.getObjLock(oid)
+	val writeLock     = lock.writeLock()
+	val alreadyLocked = (writeLocks contains oid)
 	if (debugSynch) println(s"$tid is entering locktable synch block in writeLockObj")
 	LockTable.synchronized{
 	    if(debugSynch) println(s"$tid entered LockTable synch block in writeLockObj")
 	    val writeLocked = lock.isWriteLocked()
 	    val noReaders   = lock.getReadLockCount() == 0
 	    val noWait 	= noReaders && !writeLocked
-	    if( noReaders && !writeLocked){
+	    if( noWait ){
 		if( lock.isWriteLocked() ) println(s"MISTAKE : we say $oid is free to xlock but lock says it is writelocked")
 		else if( !noReaders ) println(s"MISTAKE we say $oid is free to xlock but lock says it has readers")
 		LockTable.addOwner(oid,tid)
 		writeLock.lock()
 		writeLocks += (oid -> writeLock)
 		locked = true
-		if( DEBUG ) println(s"$tid got to writeLock $oid b/c it had no owners")
+		println(s"$tid got to writeLock $oid b/c it had no owners.")
 	    } // if
 	    else if( writeLock.isHeldByCurrentThread() ){
 		 if( DEBUG ) println(s"$tid already holds writeLock for $oid, don't lock again.")
 		 locked = true
-	    } // else if
-		
-	}
+	    } // else if	
+	} // synch
 	if(debugSynch) println(s"$tid exited LockTable synch block in writeLockObj")
 	if( !locked ){
 												// get here means you can't lock without waiting
@@ -253,12 +267,21 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		LockTable.addWaiter(oid,tid)
 		writeLock.lock()
 		writeLock.unlock()
-		LockTable.removeWaiter(oid,tid)
+		LockTable.removeWaiter(oid, tid)
 		locked = writeLockObj(oid)
-	    }
+	    } // if no deadLock
 	    else if( DEBUG ) println(s"$tid not allowed to wait for lock for $oid b/c of deadlock.")
 	} // if
 	if(locked && CLAIRVOYANCE) println(s"writelock($tid,$oid)")
+	if(DEBUG){
+	    println(s"readLocks for $tid leaving writeLockObj: ")
+	    for(oid <- readLocks.keys) print(s"$tid,$oid ")
+	    println("")
+
+	    println(s"writeLocks for $tid leaving writeLockObj: ")
+	    for(oid <- writeLocks.keys) print(s"$tid,$oid ")
+	    println("")
+	}
 	locked
     } // writeLockObj
     
@@ -266,6 +289,15 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     def readLockObj(oid: Int): Boolean = 
     {
 	Thread.sleep(100)
+	if(DEBUG){
+	    println(s"readLocks for $tid entering writeLockObj: ")
+	    for(oid <- readLocks.keys) print(s"$tid,$oid ")
+	    println("")
+
+	    println(s"writeLocks for $tid entering writeLockObj: ")
+	    for(oid <- writeLocks.keys) print(s"$tid,$oid ")
+	    println("")
+	}
 	var locked = false
 	val lock = LockTable.getObjLock(oid)
 	val readLock = lock.readLock()
@@ -286,35 +318,30 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		    if( lock.getReadLockCount() > 0 ) println(s"MISTAKE: $tid locking $oid bc we say it is unlocked but lock says it has readers.")
 		    if( lock.isWriteLocked() )	println(s"MISTAKE: $tid locking $oid b/c we say it is unlocked but lock says it is writeLocked")
 		    LockTable.addOwner(oid, tid)
-		    if( readLock.tryLock() ){
-		    	if( DEBUG ) println(s"$tid readlocked on $oid")
-		    	readLocks += (oid -> readLock)
-		    	locked = true
-		    	if( DEBUG ) println(s"$tid got to readLockin $oid because it has no owners")
-		    }
-		    else if( DEBUG ) println(s"\\::::::::::::::::ERROR: readLock.tryLock() failed for $tid in readLockObj in noOwners && !writeLocked")
+		    readLock.tryLock()
+		    readLocks += (oid -> readLock)
+		    locked = true
+		    if( DEBUG ) println(s"$tid got to readLockin $oid because it has no owners")
 		} // if
 		else if( !writeLocked ){
 		     if( DEBUG ) println(s"$tid wants to share lock $oid")
+		     readLock.tryLock() 
+		     if( DEBUG ) println(s"$tid is readlocked on $oid")
 		     LockTable.addOwner(oid,tid)
 		     LockTable.updateWaiters(oid,tid)
-		     if( readLock.tryLock() ){
-		     	 if( DEBUG ) println(s"$tid is readlocked on $oid")
-		     	 readLocks += (oid -> readLock)
-		     	 if( DEBUG ) println(s"$tid got to readLock $oid because it is shared locked.")	//we want to share in the locking
-			 locked = true
-		     }
-		     else if( DEBUG ) println(s"\\::::::::::::::::\n\n\n\n\nERROR: $tid got to readLockin $oid because it has no owners\n\n\n\n\n\n\n\n\n\n\n\n::::::::::")
-		} // else
+		     readLocks += (oid -> readLock)
+		     if( DEBUG ) println(s"$tid got to readLock $oid because it is shared locked.")	//we want to share in the locking
+		     locked = true
+		} // else if
 	} // synchronized
 	if(debugSynch) println(s"$tid exited LockTable synch block in readLockObj")
-	if(!locked){
+	if(!locked && !ROLLBACK){
 												// get here means can't get lock without waiting
 	    val noDeadlock = WaitsForGraph.checkForDeadlocks(tid, oid, lock, READ)		   // check to make sure waiting won't cause a deadlock
 	    if( noDeadlock ){
 	    	if( DEBUG ) println(s"$tid is waiting to reenter readLockObj for $oid outside of a synchronized block.")
 		LockTable.addWaiter(oid, tid)
-	    	readLock.lock()
+	    	readLock.lock() 
 		readLock.unlock()
 		LockTable.removeWaiter(oid,tid)
 		locked = readLockObj(oid)
@@ -322,6 +349,15 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	    else if( DEBUG ) println(s"$tid not allowed to wait to readLock $oid b/c of deadlock.")
 	} // if
 	if(locked && CLAIRVOYANCE) println(s"readlocked($tid,$oid)")
+	if(DEBUG){
+	    println(s"readLocks for $tid leaving writeLockObj: ")
+	    for(oid <- readLocks.keys) print(s"$tid,$oid ")
+	    println("")
+
+	    println(s"writeLocks for $tid leaving writeLockObj: ")
+	    for(oid <- writeLocks.keys) print(s"$tid,$oid ")
+	    println("")
+	}
 	locked
     } // readLockObj
     
@@ -447,7 +483,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 			writeLock.unlock()
 			if( CLAIRVOYANCE )println(s"unlock($tid,$oid)")
 	      		LockTable.unlock(tid,oid)
-	      		readLocks -= oid
+	      		writeLocks -= oid
 	}
     }
 
@@ -463,9 +499,10 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 object TransactionTest extends App {
     private val _2PL = 0
     private val TSO = 1
-    private val numTrans = 
+    private val numTrans = 11
     private val numOps   = 4
-    private val numObjs  = 15
+    private val numObjs  = 5
+    private val totalOps = numOps * numTrans
     
     //val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
     //val t2 = new Transaction (new Schedule (List ( ('r', 1, 0), ('r', 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
@@ -474,7 +511,7 @@ object TransactionTest extends App {
     //generate transactions
 
     val transactions = Array.ofDim[Transaction](numTrans)
-    for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),TSO)
+    for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),_2PL)
     VDB.initCache()
     for (i <- transactions.indices){
     	transactions(i).start()	
@@ -483,9 +520,9 @@ object TransactionTest extends App {
     	transactions(i).join()
     } // for
 
-    Thread.sleep(6000)
-    
-    val schedule = new Schedule( ScheduleTracker.getSchedule().toList )
+    val sch = ScheduleTracker.getSchedule().toList
+    val schedule = new Schedule( sch )
+    println(s"All ops accounted for: ${VDB.numWrites + totalOps == sch.size}")
     println(s"$schedule")
     val csr = schedule.isCSR(Transaction.nextCount())
     println(s"Resulting schedule is CSR: $csr")
