@@ -165,6 +165,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		noDeadlock = writeLockObj(oid,lock)
 		if( noDeadlock ) {
 		    VDB.write(tid,oid,value)
+
 		    println(s"$tid got to writeLock $oid")
 		} // if
 		else rollback()
@@ -245,10 +246,16 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	    LockTable.table.synchronized{
 		VDB.ch.synchronized{
 			val owners = LockTable.getLockHolders(oid)
-			/*if( owners.size != 0 )*/ for(i <- owners) VDB.ch(i) += tid
+			/*if( owners.size != 0 )*/ for(i <- owners) VDB.ch(i) += tid          ///should we check the deadlock after we add the edge??
 		}//synchronized
-	    } // synchronized	
+	    } // synchronized
+
 	    writeLock.lock()
+		/*
+		VDB.ch.synchronized{												//shoud we delete the edge after get the lock???
+			val owners = LockTable.getLockHolders(oid)
+			for(i <- owners) VDB.ch(i) -= tid
+		}*/
 	    noDeadlock = writeLockObj(oid, lock)
 	} // if
 	noDeadlock
@@ -280,6 +287,10 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		}//synchronized
 	    } // synchronized	
 	    readLock.lock()
+		/*VDB.ch.synchronized{
+			val owners = LockTable.getLockHolders(oid)
+			for(i <- owners) VDB.ch(i) -= tid
+		}*/
 	    noDeadlock = readLockObj(oid,lock)
 	} // if
 	noDeadlock
