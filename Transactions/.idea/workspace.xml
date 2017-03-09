@@ -2,10 +2,17 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a542852e-17d6-4533-8709-96c8a75f312e" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/src/main/scala/trans/#VDB.scala#" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/src/main/scala/trans/.#VDB.scala" afterPath="" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/src/main/scala/trans/LockTable.back" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/sched_file" afterPath="" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/src/main/scala/trans/Graph.back" afterPath="$PROJECT_DIR$/src/main/scala/trans/Graph.scala" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../DBConcurrencyControl8370" afterPath="$PROJECT_DIR$/../DBConcurrencyControl8370" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/log" afterPath="$PROJECT_DIR$/log" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../.gitignore" afterPath="$PROJECT_DIR$/../.gitignore" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/trans/Schedule.scala" afterPath="$PROJECT_DIR$/src/main/scala/trans/Schedule.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/trans/Transaction.scala" afterPath="$PROJECT_DIR$/src/main/scala/trans/Transaction.scala" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/trans/VDB.scala" afterPath="$PROJECT_DIR$/src/main/scala/trans/VDB.scala" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/store" afterPath="$PROJECT_DIR$/store" />
     </list>
     <ignored path="$PROJECT_DIR$/bin/" />
     <ignored path="$PROJECT_DIR$/target/" />
@@ -39,10 +46,10 @@
       <file leaf-file-name="Schedule.scala" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Schedule.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1102">
-              <caret line="59" column="24" lean-forward="false" selection-start-line="59" selection-start-column="24" selection-end-line="59" selection-end-column="24" />
+            <state relative-caret-position="437">
+              <caret line="23" column="1" lean-forward="false" selection-start-line="23" selection-start-column="1" selection-end-line="23" selection-end-column="1" />
               <folding>
-                <element signature="e#525#560#0" expanded="true" />
+                <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
               </folding>
             </state>
           </provider>
@@ -51,9 +58,11 @@
       <file leaf-file-name="Transaction.scala" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="130">
-              <caret line="370" column="8" lean-forward="false" selection-start-line="370" selection-start-column="8" selection-end-line="370" selection-end-column="8" />
-              <folding />
+            <state relative-caret-position="352">
+              <caret line="353" column="0" lean-forward="false" selection-start-line="353" selection-start-column="0" selection-end-line="353" selection-end-column="0" />
+              <folding>
+                <element signature="e#539#557#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -61,9 +70,12 @@
       <file leaf-file-name="VDB.scala" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/scala/trans/VDB.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="931">
-              <caret line="68" column="8" lean-forward="false" selection-start-line="68" selection-start-column="8" selection-end-line="68" selection-end-column="8" />
-              <folding />
+            <state relative-caret-position="-8729">
+              <caret line="372" column="8" lean-forward="false" selection-start-line="372" selection-start-column="8" selection-end-line="372" selection-end-column="8" />
+              <folding>
+                <element signature="n#!!doc" expanded="true" />
+                <element signature="e#447#502#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -111,8 +123,8 @@
         <option value="$PROJECT_DIR$/src/main/scala/trans/TransactionTSO.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/trans/VDBTS.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/trans/Schedule.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/trans/VDB.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/trans/Transaction.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/trans/VDB.scala" />
       </list>
     </option>
   </component>
@@ -143,7 +155,7 @@
     <property name="settings.editor.selected.configurable" value="org.jetbrains.plugins.scala.compiler.ScalaCompileServerForm" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
   </component>
-  <component name="RunManager" selected="Application.VDBTest2">
+  <component name="RunManager" selected="Application.VDBTest3">
     <configuration default="false" name="TransactionTest" type="Application" factoryName="Application" temporary="true">
       <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
         <pattern>
@@ -152,26 +164,6 @@
         </pattern>
       </extension>
       <option name="MAIN_CLASS_NAME" value="trans.TransactionTest" />
-      <option name="VM_PARAMETERS" />
-      <option name="PROGRAM_PARAMETERS" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
-      <option name="ALTERNATIVE_JRE_PATH" />
-      <option name="ENABLE_SWING_INSPECTOR" value="false" />
-      <option name="ENV_VARIABLES" />
-      <option name="PASS_PARENT_ENVS" value="true" />
-      <module name="transactions" />
-      <envs />
-      <method />
-    </configuration>
-    <configuration default="false" name="GraphTest" type="Application" factoryName="Application" temporary="true">
-      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
-        <pattern>
-          <option name="PATTERN" value="trans.*" />
-          <option name="ENABLED" value="true" />
-        </pattern>
-      </extension>
-      <option name="MAIN_CLASS_NAME" value="trans.GraphTest" />
       <option name="VM_PARAMETERS" />
       <option name="PROGRAM_PARAMETERS" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -232,6 +224,26 @@
         </pattern>
       </extension>
       <option name="MAIN_CLASS_NAME" value="trans.VDBTest2" />
+      <option name="VM_PARAMETERS" />
+      <option name="PROGRAM_PARAMETERS" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+      <option name="ALTERNATIVE_JRE_PATH" />
+      <option name="ENABLE_SWING_INSPECTOR" value="false" />
+      <option name="ENV_VARIABLES" />
+      <option name="PASS_PARENT_ENVS" value="true" />
+      <module name="transactions" />
+      <envs />
+      <method />
+    </configuration>
+    <configuration default="false" name="VDBTest3" type="Application" factoryName="Application" temporary="true">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
+        <pattern>
+          <option name="PATTERN" value="trans.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <option name="MAIN_CLASS_NAME" value="trans.VDBTest3" />
       <option name="VM_PARAMETERS" />
       <option name="PROGRAM_PARAMETERS" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -501,23 +513,23 @@
     </configuration>
     <list size="5">
       <item index="0" class="java.lang.String" itemvalue="Application.TransactionTest" />
-      <item index="1" class="java.lang.String" itemvalue="Application.GraphTest" />
-      <item index="2" class="java.lang.String" itemvalue="Application.VDBTest" />
-      <item index="3" class="java.lang.String" itemvalue="Application.textAdjustlock" />
-      <item index="4" class="java.lang.String" itemvalue="Application.VDBTest2" />
+      <item index="1" class="java.lang.String" itemvalue="Application.VDBTest" />
+      <item index="2" class="java.lang.String" itemvalue="Application.textAdjustlock" />
+      <item index="3" class="java.lang.String" itemvalue="Application.VDBTest2" />
+      <item index="4" class="java.lang.String" itemvalue="Application.VDBTest3" />
     </list>
     <recent_temporary>
       <list size="5">
-        <item index="0" class="java.lang.String" itemvalue="Application.VDBTest2" />
-        <item index="1" class="java.lang.String" itemvalue="Application.textAdjustlock" />
-        <item index="2" class="java.lang.String" itemvalue="Application.TransactionTest" />
-        <item index="3" class="java.lang.String" itemvalue="Application.VDBTest" />
-        <item index="4" class="java.lang.String" itemvalue="Application.GraphTest" />
+        <item index="0" class="java.lang.String" itemvalue="Application.VDBTest3" />
+        <item index="1" class="java.lang.String" itemvalue="Application.VDBTest2" />
+        <item index="2" class="java.lang.String" itemvalue="Application.textAdjustlock" />
+        <item index="3" class="java.lang.String" itemvalue="Application.TransactionTest" />
+        <item index="4" class="java.lang.String" itemvalue="Application.VDBTest" />
       </list>
     </recent_temporary>
   </component>
   <component name="SbtLocalSettings">
-    <option name="lastUpdateTimestamp" value="1488558689587" />
+    <option name="lastUpdateTimestamp" value="1489079585991" />
     <option name="availableProjects">
       <map>
         <entry>
@@ -577,19 +589,20 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1296" height="776" extended-state="6" />
+    <frame x="-8" y="-8" width="1296" height="776" extended-state="7" />
     <editor active="true" />
     <layout>
       <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32882884" sideWeight="0.496875" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Nl-Palette" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32732734" sideWeight="0.37734374" order="10" side_tool="false" content_ui="tabs" />
       <window_info id="SBT" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="Palette&#9;" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Image Layers" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32882884" sideWeight="0.41328126" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32882884" sideWeight="0.43828124" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32882884" sideWeight="0.58671874" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32882884" sideWeight="0.56171876" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Properties" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32882884" sideWeight="0.49375" order="9" side_tool="false" content_ui="tabs" />
@@ -606,7 +619,6 @@
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
-      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32732734" sideWeight="0.39140624" order="10" side_tool="false" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
     </layout>
@@ -623,21 +635,13 @@
     <option name="FILTER_TARGETS" value="false" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Schedule.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2014">
-          <caret line="106" column="10" lean-forward="false" selection-start-line="106" selection-start-column="10" selection-end-line="106" selection-end-column="10" />
-          <folding>
-            <element signature="e#525#560#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -645,7 +649,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="361">
           <caret line="19" column="24" lean-forward="true" selection-start-line="19" selection-start-column="24" selection-end-line="19" selection-end-column="24" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -654,7 +661,7 @@
         <state relative-caret-position="2014">
           <caret line="106" column="10" lean-forward="true" selection-start-line="106" selection-start-column="10" selection-end-line="106" selection-end-column="10" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -663,7 +670,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -671,7 +680,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="4275">
           <caret line="225" column="25" lean-forward="false" selection-start-line="225" selection-start-column="16" selection-end-line="225" selection-end-column="25" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -680,7 +692,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -689,7 +701,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -697,7 +711,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2337">
           <caret line="123" column="7" lean-forward="false" selection-start-line="123" selection-start-column="7" selection-end-line="123" selection-end-column="7" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -708,7 +725,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -717,7 +734,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="912">
           <caret line="60" column="16" lean-forward="false" selection-start-line="60" selection-start-column="16" selection-end-line="60" selection-end-column="16" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -725,7 +744,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -734,7 +756,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -743,7 +765,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -751,7 +775,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2774">
           <caret line="146" column="8" lean-forward="false" selection-start-line="146" selection-start-column="8" selection-end-line="146" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -760,7 +787,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -769,7 +796,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -777,7 +806,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2774">
           <caret line="146" column="8" lean-forward="false" selection-start-line="146" selection-start-column="8" selection-end-line="146" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -786,7 +818,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -795,7 +827,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="3249">
           <caret line="171" column="0" lean-forward="true" selection-start-line="171" selection-start-column="0" selection-end-line="171" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -803,7 +837,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2774">
           <caret line="146" column="8" lean-forward="false" selection-start-line="146" selection-start-column="8" selection-end-line="146" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -811,7 +848,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -820,7 +859,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -829,7 +868,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2223">
           <caret line="120" column="8" lean-forward="false" selection-start-line="120" selection-start-column="8" selection-end-line="120" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -837,7 +879,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="456">
           <caret line="36" column="7" lean-forward="false" selection-start-line="36" selection-start-column="7" selection-end-line="36" selection-end-column="7" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -846,7 +890,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -855,7 +899,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2223">
           <caret line="120" column="8" lean-forward="false" selection-start-line="120" selection-start-column="8" selection-end-line="120" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -863,7 +910,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -872,7 +921,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -881,7 +930,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2223">
           <caret line="120" column="8" lean-forward="false" selection-start-line="120" selection-start-column="8" selection-end-line="120" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -889,7 +941,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -898,7 +952,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -907,7 +961,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2223">
           <caret line="120" column="8" lean-forward="false" selection-start-line="120" selection-start-column="8" selection-end-line="120" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -915,7 +972,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -924,7 +983,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -933,7 +992,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2223">
           <caret line="120" column="8" lean-forward="false" selection-start-line="120" selection-start-column="8" selection-end-line="120" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -941,7 +1003,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -950,7 +1014,7 @@
         <state relative-caret-position="475">
           <caret line="25" column="9" lean-forward="false" selection-start-line="25" selection-start-column="9" selection-end-line="25" selection-end-column="9" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
@@ -959,7 +1023,10 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2223">
           <caret line="120" column="8" lean-forward="false" selection-start-line="120" selection-start-column="8" selection-end-line="120" selection-end-column="8" />
-          <folding />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -987,30 +1054,42 @@
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/trans/#VDB.scala#" />
+    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/.#VDB.scala" />
+    <entry file="jar://$PROJECT_DIR$/lib/scalation.jar!/scalation/plot/PlotM.class">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="171">
+          <caret line="9" column="7" lean-forward="false" selection-start-line="9" selection-start-column="7" selection-end-line="9" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Schedule.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1102">
-          <caret line="59" column="24" lean-forward="false" selection-start-line="59" selection-start-column="24" selection-end-line="59" selection-end-column="24" />
+        <state relative-caret-position="437">
+          <caret line="23" column="1" lean-forward="false" selection-start-line="23" selection-start-column="1" selection-end-line="23" selection-end-column="1" />
           <folding>
-            <element signature="e#525#560#0" expanded="true" />
+            <marker date="1489045376988" expanded="true" signature="5215:5297" ph="/.../" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/.#VDB.scala" />
     <entry file="file://$PROJECT_DIR$/src/main/scala/trans/VDB.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="931">
-          <caret line="68" column="8" lean-forward="false" selection-start-line="68" selection-start-column="8" selection-end-line="68" selection-end-column="8" />
-          <folding />
+        <state relative-caret-position="-8729">
+          <caret line="372" column="8" lean-forward="false" selection-start-line="372" selection-start-column="8" selection-end-line="372" selection-end-column="8" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#447#502#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="130">
-          <caret line="370" column="8" lean-forward="false" selection-start-line="370" selection-start-column="8" selection-end-line="370" selection-end-column="8" />
-          <folding />
+        <state relative-caret-position="352">
+          <caret line="353" column="0" lean-forward="false" selection-start-line="353" selection-start-column="0" selection-end-line="353" selection-end-column="0" />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>

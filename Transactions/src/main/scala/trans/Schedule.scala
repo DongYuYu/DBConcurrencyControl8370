@@ -17,8 +17,6 @@
  */
 
 package trans
-import scalation.graphalytics.Graph
-import scalation.graphalytics.Cycle.hasCycle
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Operation` object defines the 'Op' type and read (r) and write (w) operation-types.
  */
@@ -56,15 +54,17 @@ class Schedule (s: List [Op])
      */
     def isCSR (nTrans: Int): Boolean =
     {
-        //val g = new Graph (Array.fill (nTrans)(Set [Int] ()))
-	val ch = Array.ofDim[Set[Int]](nTrans)
-	for (i <- ch.indices) ch(i) = Set[Int]()
+	val g = new Graph()
+	for( i <- 0 to nTrans-1) g.addNode(i)
         for (i <- s.indices; j<-i+1 until s.size) {
-	    if ( conflicts (s(i), s(j)) )ch(s(i)._2) += s(j)._2
+	    val u = s(i)._2
+	    val v = s(j)._2
+	    if ( conflicts (s(i), s(j)) ) g.addEdge(u,v)
 	}
-	val g = new Graph(ch)
-        g.printG ()
-	!hasCycle(g)
+	println(s"Precedence Graph: ")
+
+        g.printG2 ()
+	!(g.hasCycle)
     } // isCSR
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -147,9 +147,7 @@ object Schedule
 						rand.nextInt(nObjs))).toList
         return new Schedule(s)
     } // genSchedule	
-
-} // Schedule object
-
+ } // Schedule object
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `ScheduleTest` object is used to test the `Schedule` class.
