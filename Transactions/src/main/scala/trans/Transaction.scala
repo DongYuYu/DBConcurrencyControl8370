@@ -32,6 +32,7 @@ object Transaction
     private var count = -1
 
     def nextCount () = { count += 1; count }
+	def reset() = {count = -1}
 
     VDB.initCache ()
 
@@ -81,6 +82,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     } // run
 
 
+	def resetCount() = reset()
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'. Redirect to different concurrency by ConcurrencyFlag setting
       *  @param oid  the object/record being read

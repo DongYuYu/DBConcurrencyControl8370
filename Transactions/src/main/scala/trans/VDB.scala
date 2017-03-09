@@ -854,8 +854,8 @@ object VDBTest2 extends App
 } // VDBTest2B
 object VDBTest3 extends App
 {
-	val n = 10
-	val numberOfTransations = VectorD.range(0,10)*10
+	val n = 20
+	val numberOfTransations = VectorD.range(0,20)*10
 	var tps = new VectorD(n)
 	println("test+"+tps)
 	var TOTAL_TRANSACTIONS = 0
@@ -879,9 +879,11 @@ object VDBTest3 extends App
 
 		println("::////////////////////////////////\nall transactions finished\n\n\n\n")
 		val t1 = System.currentTimeMillis()
-		val t3 = t1 - t0
-		println("Elapsed time: " + (t1 - t0) + "ns")
-		tps(i) = TOTAL_TRANSACTIONS/(t3)
+		val t3 = (t1 - t0)/1000
+		println("Elapsed time: " + (t1 - t0) + "ms")
+		tps(i) = TOTAL_TRANSACTIONS/(t3+0.00001)
+		new Transaction(Schedule.genSchedule2(0, OPS_PER_TRANSACTION, TOTAL_OBJECTS), _2PL).resetCount()
+
 		TOTAL_TRANSACTIONS +=10
 
 	}
