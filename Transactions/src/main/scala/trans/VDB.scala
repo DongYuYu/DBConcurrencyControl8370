@@ -336,7 +336,8 @@ object VDB
     
     private val DEBUG         = true                    // debug flag
     private val debugSynch    = false
-    private val CSR_TESTING   = true 
+
+    val CSR_TESTING   = false 
 
     private val pages         = 5                        // number of pages in cache
     private val recs_per_page = 32                       // number of record per page
@@ -348,8 +349,8 @@ object VDB
     private val ROLLBACK = -3
 
     private var lastCommit = -1
-    var numWrites = 0	
-
+    var numWrites    = 0	
+    var ignoredWrites = 0
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** The `Page` case class 
      */
@@ -570,20 +571,14 @@ object VDB
      */
     def commit (tid: Int)
     {
-	//println(s"transaction $tid entering synchronized block to commit")
 	if(debugSynch) println(s"$tid entering VDB synchronized block")
 	synchronized{
 		if(DEBUG) println(s"commit($tid)")
 		if(debugSynch) println(s"$tid entered VDB synchronized block")
 		logBuf += ((tid, COMMIT, null, null))
-        	if (DEBUG) {
-	   	   println (s"commit ($tid)")
-	   	   //printLogBuf()
-		}
 		flushLogBuf()			 				//flush the logBuf
 		lastCommit = logBuf.length - 1					//update the lastCommit pointer
-		//println(s"$tid committed from VDB")
-		//if( DEBUG ) print_log()
+		
 	} // synch
 	if(debugSynch) println(s"$tid exited VDB synchronized block")
     } // commit
@@ -592,21 +587,19 @@ object VDB
     /** Method to flush the logBuf contents into the log_file. 
      */
     def flushLogBuf() {
-		var raf = new RandomAccessFile(PDB.log_file, "rw")
+		val raf = PDB.log
 		for (i <- lastCommit + 1 to logBuf.length - 1) {
 			var bb = ByteBuffer.allocate(264)
-			//get a new ByteBuffer
-			var data = logBuf(i)                //grab the current record to flush
-			bb.putInt(data._1)
-			bb.putInt(data._2)
-			if (data._3 != null) bb.put(data._3)        //can't put(null) values
+			val (tid, oid, oldVal, newVal) = logBuf(i)
+			bb.putInt(tid)
+			bb.putInt(oid)
+			if (oldVal != null) bb.put(oldVal)
 			else bb.put(("-" * 128).getBytes())
-			if (data._4 != null) bb.put(data._4)            //again, null
+			if (newVal != null) bb.put(newVal)
 			else bb.put(("-" * 128).getBytes())
 			var ba = bb.array()
 			raf.seek(raf.length())                //make sure to be appending
 			raf.write(ba)
-			//println("FlushlogBuff")
 		} // for
 	} // flushLogBuf()
     
@@ -624,23 +617,43 @@ object VDB
      */
     def print_log() 
     {
-	var raf = new RandomAccessFile(PDB.log_file,"rw")
+	val raf = PDB.log
+     	raf.seek(0)						
+	var buf = Array.ofDim[Byte](log_rec_size)
+     	var read = raf.read(buf)
+     	while( read != -1 ){
+     	    var bb = ByteBuffer.allocate(log_rec_size)
+	    bb.put(buf);
+	    bb.position(0)
+	    val (tid, oid, oldVal, newVal) = (bb.getInt().toString()             ,
+	    	      	   	   	      bb.getInt().toString()             ,
+					      new String(bb.array.slice(8  ,135)),
+					      new String(bb.array.slice(136,263))
+					      )
+	    println(s"($tid,$oid,$oldVal,$newVal)")
+	    read = raf.read(buf)
+	}// while
+    }
+    //::
+    /**/
+    def printStore() 
+    {
+	var raf = new RandomAccessFile(PDB.store_file,"rw")
      	raf.seek(0)						
      	//var buf = Array.ofDim[Byte](log_rec_size) ??
-	var buf = Array.ofDim[Byte](128)
+	var buf = Array.ofDim[Byte](record_size)
      	var count = 0;
      	var read = raf.read(buf)
-     	print(s"read: $read")
+     	//print(s"read: $read")
      	while( read != -1 ){
-     	    println(s"count: $count")
-     	    var bb = ByteBuffer.allocate(264)
+     	    var bb = ByteBuffer.allocate(record_size)
 
 	    bb.put(buf);
 
 	    bb.position(0)
-	    println(s"(${bb.getInt()},${bb.getInt()},"        +
-	       	       s"${bb.array.slice(8,135).toString()},"  +
-		       s"${bb.array.slice(136,263).toString()}")
+
+	    println(s"${new String(bb.array())}")
+	    
 	    read = raf.read(buf)
 	    count+=1
 	}// while
@@ -720,7 +733,7 @@ object PDB
 	{
 		store.seek(pageNum*recs_per_page*record_size)
 		var p = page.p
-		for (i <- p.indices) {                //make sure to be appending
+		for (i <- p.indices) {                
 			store.write(p(i))
 		} // for
 
@@ -787,6 +800,7 @@ object PDB
 		} // for
 		pg
 	}
+
 }
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -821,31 +835,64 @@ object VDBTest extends App
     
     VDB.commit(2);
     PDB.fetchPage(2)
+
+    VDB.print_log()
+    VDB.printStore()
 } // VDBTest
 
 object VDBTest2 extends App
 {
- 	val OPS_PER_TRANSACTION  = 10
-	val TOTAL_TRANSACTIONS   = 50
+ 	val OPS_PER_TRANSACTION  = 5
+	val TOTAL_TRANSACTIONS   = 100
     	val TOTAL_OBJECTS	 = 480
 	val TOTAL_OPS 		 = OPS_PER_TRANSACTION * TOTAL_TRANSACTIONS
 
-	val _2PL = 0
-	val TSO  = 1
+	val _2PL 	= 0
+	val TSO		= 1
+	val concurrency = _2PL
+	
 	PDB.initStore()
-   	VDB.initCache ()
+//   	VDB.initCache ()
 
+	println(s"Initial log:")
+	VDB.print_log()
+	println(s"Initial store:")
+	VDB.printStore()
+	
 	var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
-	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) , _2PL)
+	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction( Schedule.genSchedule2(i,OPS_PER_TRANSACTION, TOTAL_OBJECTS) , concurrency)
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
 	println("all transactions started")
 	for( i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
 	
 	println("::////////////////////////////////\nall transactions finished\n\n\n\n")
-	println(s"Schedule length correct : ${ScheduleTracker.getSchedule().toList.length == TOTAL_OPS+VDB.numWrites}")
-    	val schedule = new Schedule( ScheduleTracker.getSchedule().toList )
+
+        val sch = ScheduleTracker.getSchedule().toList
+    	val schedule = new Schedule( sch )
+
 	println(s"$schedule")
-    	println(s"Resulting schedule is CSR: ${schedule.isCSR(Transaction.nextCount())}")
- 
-} // VDBTest2B
-  
+    	if(VDB.CSR_TESTING){
+	    val csr = schedule.isCSR(Transaction.nextCount())	
+    	    println(s"Resulting schedule is CSR: $csr")
+	}
+
+    	var accounting = VDB.numWrites + TOTAL_OPS - VDB.ignoredWrites == sch.size
+	
+    	if(accounting) println(s"All ops accounted for")
+    	else if( VDB.numWrites + TOTAL_OPS - VDB.ignoredWrites > sch.size ) println(s"Schedule tracker had too few operations in it.")
+    	else println("Schedule tracker had too many operations in it.")
+
+	//println ("\nPrint cache")
+    	//for (pg <- VDB.cache; rec <- pg.p) println (new String (rec))   // as text
+	
+        //println("logBuf size: " + VDB.logBuf.size)
+    	//println ("\nPrint logBuf")
+   	//for (i <- VDB.logBuf.indices) println(VDB.logBuf(i))
+	println("\nPrint log: ")
+	VDB.print_log()
+
+	println("\nPrint store: ")
+	VDB.printStore()
+
+
+} // VDBTest2

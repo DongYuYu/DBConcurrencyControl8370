@@ -57,6 +57,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     private val TSO         = 1
     private var ROLLBACK    = true
     private val debugSynch  = false
+    private var numIgnores  = 0
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Run this transaction by executing its operations.
@@ -70,9 +71,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		for (i <- sch.indices) {
 		    //if(DEBUG) println(s"$tid starting op at sch index $i")
 		    val (op, tid_1, oid) = sch(i)
-		    if(CLAIRVOYANCE)println(s"($op, $tid, $oid)")
+		    val opString = new String(s"($op,$tid,$oid)")
+		    //if(CLAIRVOYANCE)println(s"($op, $tid, $oid)")
             	    if (op == r) read (oid)
-            	    else         write (oid, VDB.str2record (sch(i).toString))
+            	    //else         write (oid, VDB.str2record (sch(i).toString))
+		    else 	 write(oid, VDB.str2record (opString))  
 	    	    if(ROLLBACK) break
         	} // for
 	    } // breakable
@@ -85,8 +88,9 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     /** Read the record with the given 'oid'. Redirect to different concurrency by ConcurrencyFlag setting
       *  @param oid  the object/record being read
       */
-    def read (oid: Int) :VDB.Record ={
-        if (concurrency == TSO) readTSO(oid)
+    def read (oid: Int): VDB.Record =
+    {
+        if (concurrency == TSO) readTSO2(oid)
         else read2PL(oid)
     }
     
@@ -95,8 +99,9 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       *  @param oid    the object/record being written
       *  @param value  the new value for the the record
       */
-    def write (oid:Int, value:VDB.Record  ) ={
-        if (concurrency == TSO ) writeTSO(oid, value)
+    def write (oid:Int, value:VDB.Record  )
+    {
+        if (concurrency == TSO ) writeTSO2(oid, value)
         else write2PL (oid, value)
     }
 
@@ -105,7 +110,8 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def begin ()=
     {
-	Thread.sleep(100)
+	import scala.util.Random
+	Thread.sleep( 20 + Random.nextInt(100) )
         if(concurrency == _2PL) fillReadWriteSet()
         VDB.begin (tid)
     } // begin
@@ -116,12 +122,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     def commit ()
     {
 	VDB.synchronized{
-	    if( DEBUG ) println(s"commit($tid)")
 	    VDB.commit (tid)
-            //if (DEBUG) println (VDB.logBuf)
 	    releaseReadLocks()
 	    releaseWriteLocks()
 	    WaitsForGraph.removeNode(tid)
+	    VDB.ignoredWrites += numIgnores
 	    if( DEBUG ) println(s"$tid committed from transaction")
 	    if( DEBUG ) println(s"Lock table after $tid commit: $LockTable")
 	} // synch
@@ -140,6 +145,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
             releaseWriteLocks()
 	    emptyReadWriteSet()
 	    tid = nextCount()
+	    numIgnores = 0
 	}
     } // rollback
     
@@ -374,9 +380,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	var rec		= Array.ofDim[Byte](128)
 	val writeTS 	= TSTable.writeTS(oid)
 	val readTS	= TSTable.readTS(oid)
+	if( DEBUG ) println(s"$tid wants to read $oid with readTS: $readTS and writeTS: $writeTS")
         if (writeTS <= tid){								// check if write_TS(X)<=TS(T), then we get to try to read  
 	   rec = VDB.read(tid,oid)._1
-	   if(readTS < tid) TSTable.readStamp(tid,oid)	
+	   if(readTS < tid) TSTable.readStamp(tid,oid)
+	   if( DEBUG ) println(s"$tid got to read $oid. New read stamp: ${TSTable.readTS(oid)}")
 	} // if
 	else rollback()
 	rec
@@ -392,14 +400,19 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     {
 	val readTS  = TSTable.readTS(oid) 
 	val writeTS = TSTable.writeTS(oid)
-      
-	if( tid > readTS && tid > writeTS ){
-	    VDB.write(tid,oid,value)
-	    TSTable.writeStamp(tid,oid)	
+      	if( DEBUG ) println(s"$tid wants to write $oid with readTS: $readTS and writeTS: $writeTS")
+	if( readTS > tid) rollback()
+	else if( readTS <= tid &&  writeTS > tid) {				//Thomas's write rule
+	    numIgnores += 1
+	    if( DEBUG) println(s"$tid invoked Thomas's write rule to ignore a write operation.")
 	}
-	else if( !(tid > readTS) ) rollback()				//Write's rule	
-
+	else if( readTS <= tid && writeTS <= tid){
+	    VDB.write(tid,oid,value)
+	    TSTable.writeStamp(tid,oid)
+	    if( DEBUG ) println(s"$tid got to write $oid. New write stamp: ${TSTable.writeTS(oid)}")
+	}
     } // writeTSO
+
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'.
       * Add Strict Timestamp Ordering
@@ -412,9 +425,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	val readTS	= TSTable.readTS(oid)
 	var locked = false
         if (writeTS <= tid){								// check if write_TS(X)<=TS(T), then we get to try to read  
-		if(writeTS < tid){							// check for STSO, then use locks						
+		if(writeTS < tid){							// check for STSO, then use locks
+		    if( DEBUG ) println(s"$tid wants to readLock $oid")
 		    locked = readLockObj(oid)
 		    if(locked) {
+		    	if( DEBUG ) println(s"$tid got to readLock $oid")
 		        rec = VDB.read(tid,oid)._1
 		    	releaseReadLocks()
 		    }
@@ -443,8 +458,12 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
         if(tid < readTS || tid < writeTS) rollback()			
 	else {
 	     if( tid > writeTS ){						// check for STSO
+	     	if( DEBUG ) println(s"$tid wants to writeLock $oid")
 	     	locked = writeLockObj(oid)
-		if(locked) VDB.write(tid,oid,value)
+		if(locked) {
+		    VDB.write(tid,oid,value)
+		    if(DEBUG)println(s"$tid got to writeLock $oid")
+		}
 		else rollback()
 	     } // if
 	     else{
@@ -499,31 +518,48 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 object TransactionTest extends App {
     private val _2PL = 0
     private val TSO = 1
-    private val numTrans = 50
+    
+    private val numTrans = 60
+    private val concurrency = TSO
+
     private val numOps   = 10
     private val numObjs  = 480
     private val totalOps = numOps * numTrans
-    
-    //val t1 = new Transaction (new Schedule (List ( ('r', 0, 0), ('r', 0, 1), (w, 0, 0), (w, 0, 1) )),TSO)
-    //val t2 = new Transaction (new Schedule (List ( ('r', 1, 0), ('r', 1, 1), (w, 1, 0), (w, 1, 1) )),TSO)
 
-
-    //generate transactions
-
+    private val CSR_TESTING = false
+    private val TESTS = 5
+    private val times = Array.ofDim[Long](TESTS)
+    var start = 0L
+    var end = 0L
     val transactions = Array.ofDim[Transaction](numTrans)
-    for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),_2PL)
-    VDB.initCache()
-    for (i <- transactions.indices){
-    	transactions(i).start()	
-    } // for
-    for (i <- transactions.indices){
-    	transactions(i).join()
-    } // for
+    //for( i <- 0 until TESTS ){
+    	 for (i <- transactions.indices) transactions(i) = new Transaction(Schedule.genSchedule2(i,numOps,numObjs),concurrency)
+    	 start = System.currentTimeMillis
+    	 for (i <- transactions.indices){
+    	     transactions(i).start()	
+    	 } // for
+    	 for (i <- transactions.indices){
+    	     transactions(i).join()
+    	 } // for
 
-    val sch = ScheduleTracker.getSchedule().toList
-    val schedule = new Schedule( sch )
-    println(s"All ops accounted for: ${VDB.numWrites + totalOps == sch.size}")
-    println(s"$schedule")
-    val csr = schedule.isCSR(Transaction.nextCount())
-    println(s"Resulting schedule is CSR: $csr")
+    	 end = System.currentTimeMillis
+
+    	 val sch = ScheduleTracker.getSchedule().toList
+    	 val schedule = new Schedule( sch )
+
+    	 println(s"$schedule")
+    	 if ( CSR_TESTING ){
+            val csr = schedule.isCSR(Transaction.nextCount())
+    	    println(s"Resulting schedule is CSR: $csr")
+    	 }
+    	 //times(i) = end - start
+	 println(s"total time: ${end - start}")
+    	 var accounting = VDB.numWrites + totalOps - VDB.ignoredWrites == sch.size
+    	 if(accounting) println(s"All ops accounted for")
+    	 else if( VDB.numWrites + totalOps - VDB.ignoredWrites > sch.size ) println(s"Schedule tracker had too few operations in it.")
+    	 else println("Schedule tracker had too many operations in it.")
+    //} // for
+    //println("TIMES:")
+    //for ( i <- 0 until TESTS ) println(s"${times(i)}")
+    
 }
