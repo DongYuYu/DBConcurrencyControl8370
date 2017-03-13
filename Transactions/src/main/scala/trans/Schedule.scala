@@ -165,5 +165,9 @@ object ScheduleTest extends App
 
     println (s"s3 = ${Schedule.gen (3, 2, 2)}")
 
+
+
+
+
 } // ScheduleTest object
 

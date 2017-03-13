@@ -3,7 +3,9 @@
   <component name="ChangeListManager">
     <list default="true" id="a542852e-17d6-4533-8709-96c8a75f312e" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../DBConcurrencyControl8370" afterPath="$PROJECT_DIR$/../DBConcurrencyControl8370" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/log" afterPath="$PROJECT_DIR$/log" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/data" afterPath="$PROJECT_DIR$/data" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/trans/Schedule.scala" afterPath="$PROJECT_DIR$/src/main/scala/trans/Schedule.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/trans/Transaction.scala" afterPath="$PROJECT_DIR$/src/main/scala/trans/Transaction.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/trans/VDB.scala" afterPath="$PROJECT_DIR$/src/main/scala/trans/VDB.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/store" afterPath="$PROJECT_DIR$/store" />
@@ -40,33 +42,34 @@
       <file leaf-file-name="Schedule.scala" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Schedule.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="130">
-              <caret line="113" column="7" lean-forward="false" selection-start-line="113" selection-start-column="7" selection-end-line="113" selection-end-column="7" />
+            <state relative-caret-position="255">
+              <caret line="166" column="0" lean-forward="false" selection-start-line="166" selection-start-column="0" selection-end-line="166" selection-end-column="0" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="Transaction.scala" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
+      <file leaf-file-name="VDB.scala" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/main/scala/trans/VDB.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="110">
-              <caret line="50" column="16" lean-forward="false" selection-start-line="50" selection-start-column="16" selection-end-line="50" selection-end-column="16" />
+            <state relative-caret-position="322">
+              <caret line="961" column="8" lean-forward="true" selection-start-line="961" selection-start-column="8" selection-end-line="961" selection-end-column="8" />
               <folding>
-                <element signature="e#539#557#0" expanded="true" />
+                <element signature="n#!!doc" expanded="true" />
+                <element signature="e#447#502#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="VDB.scala" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/main/scala/trans/VDB.scala">
+      <file leaf-file-name="Transaction.scala" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="19">
-              <caret line="857" column="48" lean-forward="false" selection-start-line="857" selection-start-column="48" selection-end-line="857" selection-end-column="48" />
+            <state relative-caret-position="214">
+              <caret line="134" column="34" lean-forward="true" selection-start-line="134" selection-start-column="34" selection-end-line="134" selection-end-column="34" />
               <folding>
-                <element signature="n#!!doc" expanded="true" />
-                <element signature="e#447#502#0" expanded="true" />
+                <element signature="e#539#557#0" expanded="true" />
+                <element signature="e#1064#1084#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -76,11 +79,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>rw_set</find>
-      <find>contracting</find>
-      <find>numOps</find>
-      <find>writeLock</find>
-      <find>PDB</find>
       <find>Map</find>
       <find>map</find>
       <find>PDB.write</find>
@@ -101,6 +99,16 @@
       <find>nextCount</find>
       <find>start</find>
       <find>rollback</find>
+      <find>test</find>
+      <find>ela</find>
+      <find>sleep</find>
+      <find>reread</find>
+      <find>rewrite</find>
+      <find>arraybuffer</find>
+      <find>schd</find>
+      <find>countrollbackmax</find>
+      <find>Wait</find>
+      <find>removeE</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -148,6 +156,10 @@
   <component name="PropertiesComponent">
     <property name="settings.editor.selected.configurable" value="org.jetbrains.plugins.scala.compiler.ScalaCompileServerForm" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="project.structure.last.edited" value="Project" />
+    <property name="project.structure.proportion" value="0.0" />
+    <property name="project.structure.side.proportion" value="0.0" />
+    <property name="SearchEverywhereHistoryKey" value="&#9;FILE&#9;file://C:/Users/Owner/Desktop/Life with Divine/23/DBConcurrencyControl8370/Transactions/src/main/scala/trans/VDB.scala" />
   </component>
   <component name="RunManager" selected="Application.VDBTest3">
     <configuration default="false" name="TransactionTest" type="Application" factoryName="Application" temporary="true">
@@ -158,26 +170,6 @@
         </pattern>
       </extension>
       <option name="MAIN_CLASS_NAME" value="trans.TransactionTest" />
-      <option name="VM_PARAMETERS" />
-      <option name="PROGRAM_PARAMETERS" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
-      <option name="ALTERNATIVE_JRE_PATH" />
-      <option name="ENABLE_SWING_INSPECTOR" value="false" />
-      <option name="ENV_VARIABLES" />
-      <option name="PASS_PARENT_ENVS" value="true" />
-      <module name="transactions" />
-      <envs />
-      <method />
-    </configuration>
-    <configuration default="false" name="VDBTest" type="Application" factoryName="Application" temporary="true">
-      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
-        <pattern>
-          <option name="PATTERN" value="trans.*" />
-          <option name="ENABLED" value="true" />
-        </pattern>
-      </extension>
-      <option name="MAIN_CLASS_NAME" value="trans.VDBTest" />
       <option name="VM_PARAMETERS" />
       <option name="PROGRAM_PARAMETERS" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -238,6 +230,26 @@
         </pattern>
       </extension>
       <option name="MAIN_CLASS_NAME" value="trans.VDBTest3" />
+      <option name="VM_PARAMETERS" />
+      <option name="PROGRAM_PARAMETERS" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+      <option name="ALTERNATIVE_JRE_PATH" />
+      <option name="ENABLE_SWING_INSPECTOR" value="false" />
+      <option name="ENV_VARIABLES" />
+      <option name="PASS_PARENT_ENVS" value="true" />
+      <module name="transactions" />
+      <envs />
+      <method />
+    </configuration>
+    <configuration default="false" name="ScheduleTest" type="Application" factoryName="Application" temporary="true">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
+        <pattern>
+          <option name="PATTERN" value="trans.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <option name="MAIN_CLASS_NAME" value="trans.ScheduleTest" />
       <option name="VM_PARAMETERS" />
       <option name="PROGRAM_PARAMETERS" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -507,23 +519,23 @@
     </configuration>
     <list size="5">
       <item index="0" class="java.lang.String" itemvalue="Application.TransactionTest" />
-      <item index="1" class="java.lang.String" itemvalue="Application.VDBTest" />
-      <item index="2" class="java.lang.String" itemvalue="Application.textAdjustlock" />
-      <item index="3" class="java.lang.String" itemvalue="Application.VDBTest2" />
-      <item index="4" class="java.lang.String" itemvalue="Application.VDBTest3" />
+      <item index="1" class="java.lang.String" itemvalue="Application.textAdjustlock" />
+      <item index="2" class="java.lang.String" itemvalue="Application.VDBTest2" />
+      <item index="3" class="java.lang.String" itemvalue="Application.VDBTest3" />
+      <item index="4" class="java.lang.String" itemvalue="Application.ScheduleTest" />
     </list>
     <recent_temporary>
       <list size="5">
         <item index="0" class="java.lang.String" itemvalue="Application.VDBTest3" />
-        <item index="1" class="java.lang.String" itemvalue="Application.VDBTest2" />
-        <item index="2" class="java.lang.String" itemvalue="Application.textAdjustlock" />
-        <item index="3" class="java.lang.String" itemvalue="Application.TransactionTest" />
-        <item index="4" class="java.lang.String" itemvalue="Application.VDBTest" />
+        <item index="1" class="java.lang.String" itemvalue="Application.ScheduleTest" />
+        <item index="2" class="java.lang.String" itemvalue="Application.VDBTest2" />
+        <item index="3" class="java.lang.String" itemvalue="Application.textAdjustlock" />
+        <item index="4" class="java.lang.String" itemvalue="Application.TransactionTest" />
       </list>
     </recent_temporary>
   </component>
   <component name="SbtLocalSettings">
-    <option name="lastUpdateTimestamp" value="1489080654716" />
+    <option name="lastUpdateTimestamp" value="1489304478831" />
     <option name="availableProjects">
       <map>
         <entry>
@@ -583,7 +595,7 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1296" height="776" extended-state="7" />
+    <frame x="-8" y="-8" width="1296" height="776" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
@@ -594,9 +606,9 @@
       <window_info id="Palette&#9;" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Image Layers" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32882884" sideWeight="0.45390624" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25375375" sideWeight="0.45703125" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32882884" sideWeight="0.54609376" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.33183184" sideWeight="0.54296875" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Properties" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32882884" sideWeight="0.49375" order="9" side_tool="false" content_ui="tabs" />
@@ -629,27 +641,6 @@
     <option name="FILTER_TARGETS" value="false" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#539#557#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/VDB.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="361">
-          <caret line="19" column="24" lean-forward="true" selection-start-line="19" selection-start-column="24" selection-end-line="19" selection-end-column="24" />
-          <folding>
-            <element signature="n#!!doc" expanded="true" />
-            <element signature="e#447#502#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Schedule.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2014">
@@ -664,6 +655,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -693,6 +685,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -724,6 +717,7 @@
           <caret line="60" column="16" lean-forward="false" selection-start-line="60" selection-start-column="16" selection-end-line="60" selection-end-column="16" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -753,6 +747,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -782,6 +777,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -811,6 +807,7 @@
           <caret line="171" column="0" lean-forward="true" selection-start-line="171" selection-start-column="0" selection-end-line="171" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -832,6 +829,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -861,6 +859,7 @@
           <caret line="36" column="7" lean-forward="false" selection-start-line="36" selection-start-column="7" selection-end-line="36" selection-end-column="7" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -890,6 +889,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -919,6 +919,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -948,6 +949,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -977,6 +979,7 @@
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -1032,28 +1035,33 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Schedule.scala">
+    <entry file="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-library/srcs/scala-library-2.12.1-sources.jar!/scala/util/Random.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="130">
-          <caret line="113" column="7" lean-forward="false" selection-start-line="113" selection-start-column="7" selection-end-line="113" selection-end-column="7" />
+        <state relative-caret-position="211">
+          <caret line="144" column="7" lean-forward="false" selection-start-line="144" selection-start-column="7" selection-end-line="144" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Graph.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2540">
+          <caret line="189" column="12" lean-forward="true" selection-start-line="189" selection-start-column="12" selection-end-line="189" selection-end-column="12" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
+    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Schedule.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="110">
-          <caret line="50" column="16" lean-forward="false" selection-start-line="50" selection-start-column="16" selection-end-line="50" selection-end-column="16" />
-          <folding>
-            <element signature="e#539#557#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="255">
+          <caret line="166" column="0" lean-forward="false" selection-start-line="166" selection-start-column="0" selection-end-line="166" selection-end-column="0" />
+          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/trans/VDB.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="19">
-          <caret line="857" column="48" lean-forward="false" selection-start-line="857" selection-start-column="48" selection-end-line="857" selection-end-column="48" />
+        <state relative-caret-position="322">
+          <caret line="961" column="8" lean-forward="true" selection-start-line="961" selection-start-column="8" selection-end-line="961" selection-end-column="8" />
           <folding>
             <element signature="n#!!doc" expanded="true" />
             <element signature="e#447#502#0" expanded="true" />
@@ -1061,5 +1069,105 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/trans/Transaction.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="214">
+          <caret line="134" column="34" lean-forward="true" selection-start-line="134" selection-start-column="34" selection-end-line="134" selection-end-column="34" />
+          <folding>
+            <element signature="e#539#557#0" expanded="true" />
+            <element signature="e#1064#1084#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+  <component name="masterDetails">
+    <states>
+      <state key="ArtifactsStructureConfigurable.UI">
+        <settings>
+          <artifact-editor />
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="FacetStructureConfigurable.UI">
+        <settings>
+          <last-edited>No facets are configured</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="GlobalLibrariesConfigurable.UI">
+        <settings>
+          <last-edited>scala-sdk-2.10.4</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="JdkListConfigurable.UI">
+        <settings>
+          <last-edited>1.8</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="ModuleStructureConfigurable.UI">
+        <settings>
+          <last-edited>transactions</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+                <option value="0.6" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="ProjectJDKs.UI">
+        <settings>
+          <last-edited>1.8</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="ProjectLibrariesConfigurable.UI">
+        <settings>
+          <last-edited>SBT: org.scala-lang:scala-library:2.12.1:jar</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+    </states>
   </component>
 </project>

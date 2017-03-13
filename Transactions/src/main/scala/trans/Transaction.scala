@@ -20,6 +20,7 @@ package trans
 
 import Operation._
 
+import scala.util.Random
 import scala.collection.mutable.{ArrayBuffer, Map, Set}
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import scala.util.control.Breaks._
@@ -39,7 +40,7 @@ object Transaction
 } // Transaction object
 
 import Transaction._
-
+import java.lang.InterruptedException
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `Transaction` class
   *  @param sch  the schedule/order of operations for this transaction.
@@ -58,6 +59,11 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     private val TSO         = 1
     private var ROLLBACK    = true
     private val debugSynch  = false
+	private var countRollback = -1
+	private var countRollbackMax = 123		//initiate a number to make any thread whose rollback time exceeds this time has to wait, and will be reassign this num when rollback
+	private var TOLARANCE = 5000			///the tolarance time for the total count of operations
+
+	private var FAILURE = false
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Run this transaction by executing its operations.
@@ -66,6 +72,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     {
 	while(ROLLBACK){						//note: ROLLBACK defaults to true so that we can initialize the running while loop
 	    ROLLBACK = false
+		countRollback += 1
 	    begin()
 	    breakable{
 		for (i <- sch.indices) {
@@ -74,7 +81,13 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 		    if(CLAIRVOYANCE)println(s"($op, $tid, $oid)")
             	    if (op == r) read (oid)
             	    else         write (oid, VDB.str2record (sch(i).toString))
-	    	    if(ROLLBACK) break
+
+	    	    if(ROLLBACK&& tid<=TOLARANCE) break
+				if(ROLLBACK&& tid >TOLARANCE) {
+					ROLLBACK = false
+					Pattern.FAILURE = true
+					break
+				}
         	} // for
 	    } // breakable
 	} // while
@@ -88,17 +101,26 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       *  @param oid  the object/record being read
       */
     def read (oid: Int) :VDB.Record ={
-        if (concurrency == TSO) readTSO(oid)
+        if (concurrency == TSO) readTSO2(oid)
         else read2PL(oid)
     }
-    
+
+	def randomSleep():Int ={
+		if (ROLLBACK) {
+			val rand = Random.nextDouble()
+			if (rand <0.5 ) 2100
+			else 4300
+		}
+		else  Random.nextInt(99)
+
+	}
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Write the record with the given 'oid'. Redirect to different concurrency control by ConcurrencyFlag setting
       *  @param oid    the object/record being written
       *  @param value  the new value for the the record
       */
     def write (oid:Int, value:VDB.Record  ) ={
-        if (concurrency == TSO ) writeTSO(oid, value)
+        if (concurrency == TSO ) writeTSO2(oid, value)
         else write2PL (oid, value)
     }
 
@@ -107,8 +129,17 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def begin ()=
     {
-	Thread.sleep(100)
+	Thread.sleep(randomSleep())
         if(concurrency == _2PL) fillReadWriteSet()
+		if (countRollback>= countRollbackMax) {
+			Pattern.synchronized {
+				try{
+					Pattern.wait()
+				}catch{
+					case e: InterruptedException => e.printStackTrace()
+				}
+			}
+			countRollback = -1}
         VDB.begin (tid)
     } // begin
 
@@ -126,25 +157,29 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	    WaitsForGraph.removeNode(tid)
 	    if( DEBUG ) println(s"$tid committed from transaction")
 	    if( DEBUG ) println(s"Lock table after $tid commit: $LockTable")
+
 	} // synch
+	Pattern.synchronized{
+		Pattern.notify()
+	}
     } // commit
 
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Rollback this transaction.
       */
-    def rollback ()
-    {
-	VDB.synchronized{
-	    if( DEBUG ) println(s"rollback($tid)")
-	    ROLLBACK = true
-            VDB.rollback (tid)
-            releaseReadLocks()
-            releaseWriteLocks()
-	    emptyReadWriteSet()
-	    tid = nextCount()
+    def rollback () {
+		VDB.synchronized {
+			if (DEBUG) println(s"rollback($tid)")
+			ROLLBACK = true
+			countRollbackMax = Random.nextInt(99)+23
+			VDB.rollback(tid)
+			releaseReadLocks()
+			releaseWriteLocks()
+			emptyReadWriteSet()
+			tid = nextCount()
+
+		} // rollback
 	}
-    } // rollback
-    
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Fills the read/write set for this transaction.
       */
@@ -228,7 +263,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     def writeLockObj(oid: Int): Boolean =
     {
 
-	Thread.sleep(100)
+	//Thread.sleep(randomSleep())
 	if(DEBUG){
 	    println(s"readLocks for $tid entering writeLockObj: ")
 	    for(oid <- readLocks.keys) print(s"$tid,$oid ")
@@ -293,7 +328,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 
     def readLockObj(oid: Int): Boolean = 
     {
-	Thread.sleep(100)
+	//Thread.sleep(randomSleep())
 	if(DEBUG){
 	    println(s"readLocks for $tid entering writeLockObj: ")
 	    for(oid <- readLocks.keys) print(s"$tid,$oid ")
@@ -378,6 +413,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def readTSO (oid: Int): VDB.Record =
     {
+
 	var rec		= Array.ofDim[Byte](128)
 	val writeTS 	= TSTable.writeTS(oid)
 	val readTS	= TSTable.readTS(oid)
@@ -385,7 +421,10 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	   rec = VDB.read(tid,oid)._1
 	   if(readTS < tid) TSTable.readStamp(tid,oid)	
 	} // if
-	else rollback()
+	else {
+			//Thread.sleep(randomSleep())
+			rollback()
+		}
 	rec
     } // readTSO
 
@@ -397,6 +436,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def writeTSO (oid: Int, value: VDB.Record)
     {
+
 	val readTS  = TSTable.readTS(oid) 
 	val writeTS = TSTable.writeTS(oid)
       
@@ -404,8 +444,10 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	    VDB.write(tid,oid,value)
 	    TSTable.writeStamp(tid,oid)	
 	}
-	else if( !(tid > readTS) ) rollback()				//Write's rule	
-
+	else if( !(tid > readTS) ) {
+		//Thread.sleep(randomSleep())
+		rollback()                //Write's rule
+	}
     } // writeTSO
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Read the record with the given 'oid'.
@@ -497,7 +539,23 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 
     
 } // Transaction class
+//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+/** The `Patternt` object is used to break the infinite loop
+  *
+  */
 
+object Pattern extends Thread{
+	var running = true
+	var FAILURE = false
+	override def run(): Unit = {
+		while(running){
+			Thread.sleep(3300)
+			this.synchronized{
+				this.notify()
+			}
+		}
+	}
+}
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /** The `TransactionTest` object is used to test the `Transaction` class.
   * > run-main trans.TransactionTest
