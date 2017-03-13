@@ -58,7 +58,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     private var ROLLBACK    = true
     private val debugSynch  = false
     private var numIgnores  = 0
-
+    private var waitMult    = 80.0
     //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     /** Run this transaction by executing its operations.
       */
@@ -111,7 +111,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
     def begin ()=
     {
 	import scala.util.Random
-	Thread.sleep( 20 + Random.nextInt(100) )
+	Thread.sleep( 20 + Random.nextInt(waitMult.toInt) )
         if(concurrency == _2PL) fillReadWriteSet()
         VDB.begin (tid)
     } // begin
@@ -137,6 +137,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
       */
     def rollback ()
     {
+	import java.lang.Math.floor
 	VDB.synchronized{
 	    if( DEBUG ) println(s"rollback($tid)")
 	    ROLLBACK = true
@@ -146,6 +147,7 @@ class Transaction (sch: Schedule, concurrency: Int =0) extends Thread
 	    emptyReadWriteSet()
 	    tid = nextCount()
 	    numIgnores = 0
+	    if(concurrency == TSO) waitMult = floor(waitMult * 1.1)
 	}
     } // rollback
     
@@ -519,8 +521,8 @@ object TransactionTest extends App {
     private val _2PL = 0
     private val TSO = 1
     
-    private val numTrans = 60
-    private val concurrency = TSO
+    private val numTrans = 200
+    private val concurrency = _2PL
 
     private val numOps   = 10
     private val numObjs  = 480

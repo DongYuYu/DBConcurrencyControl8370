@@ -296,6 +296,7 @@ object LockTable
      */
     def unlock (tid: Int, oid: Int)
     {
+	synchronized{
 	if( (owners contains oid) && (owners(oid) contains tid) ) {
 	    owners(oid) -= tid
 	    //println(s"owners of lock for $oid: ${owners(oid).mkString}")
@@ -303,6 +304,8 @@ object LockTable
 	} // if
 	else if( !(owners contains oid) && DEBUG) println(s"$tid tried to unlock object $oid which didn't have any owners")
 	else if( DEBUG )println(s"$tid tried to unlock object $oid that it didn't own.")
+	}
+	
     } // ul
 
     /*******************************************************************************
