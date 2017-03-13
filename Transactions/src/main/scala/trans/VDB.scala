@@ -854,8 +854,8 @@ object VDBTest2 extends App
 } // VDBTest2B
 object VDBTest3 extends App
 {
-	val numOfTest = 20
-	val step = 10
+	val numOfTest = 5
+	val step = 2
 	var numOfAverage = 3								///decide the times to run per test
 	var actualNum = 0
 	val numberOfTransations = VectorD.range(0,numOfTest)*step
@@ -951,7 +951,7 @@ object VDBTest3 extends App
 		data.setCol(0,numberOfTransations)
 		data.setCol(1,tps_TS)
 		data.setCol(2,tps_2PL)
-		data.write("data")
+		//data.write("data")
 		println("trace"+record2PL.toString())
 		println("trace2"+recordTSO.toString())
 		new plot.Plot(numberOfTransations,tps_2PL,tps_TS,"Tps VS NumofTransactions")
