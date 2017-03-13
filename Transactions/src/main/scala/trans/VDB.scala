@@ -33,7 +33,7 @@ import scala.collection.mutable.HashMap
 import scalation.plot.Plot
 import Operation._
 
-import scalation.linalgebra.VectorD
+import scalation.linalgebra.{MatrixD, VectorD}
 import scalation.plot
 
 object TSTable
@@ -854,39 +854,108 @@ object VDBTest2 extends App
 } // VDBTest2B
 object VDBTest3 extends App
 {
-	val n = 20
-	val numberOfTransations = VectorD.range(0,20)*10
-	var tps = new VectorD(n)
-	println("test+"+tps)
-	var TOTAL_TRANSACTIONS = 0
-	for (i <-0 until n) {
-		var t0 = System.currentTimeMillis()
-		val OPS_PER_TRANSACTION = 10
+	val numOfTest = 20
+	val step = 10
+	var numOfAverage = 3								///decide the times to run per test
+	var actualNum = 0
+	val numberOfTransations = VectorD.range(0,numOfTest)*step
+	var record2PL = ArrayBuffer[(Int,Int)]()				//(totalTransactions, Failure time)
+	var recordTSO = ArrayBuffer[(Int,Int)]()
+	var count = 0										//count the number of Failure
+	var tps_2PL = new VectorD(numOfTest)
+	var tps_TS = new VectorD(numOfTest)
+	var tps_temp = new VectorD(numOfAverage)
+	var data = new MatrixD(numOfTest,3)
 
-		val TOTAL_OBJECTS = 480
-		var TOTAL_OPS = OPS_PER_TRANSACTION * TOTAL_TRANSACTIONS
+	var TOTAL_TRANSACTIONS = 10
+	val OPS_PER_TRANSACTION = 10
+	Pattern.start()
+	for (i <-0 until numOfTest) {
+		numOfAverage =1
+		count = 0
 
-		val _2PL = 0
-		val TSO = 1
-		PDB.initStore()
-		VDB.initCache()
+		for (j <-0 until numOfAverage) {
+			Pattern.FAILURE=false
+			var t0 = System.currentTimeMillis()
+			val TOTAL_OBJECTS = 500
+			var TOTAL_OPS = OPS_PER_TRANSACTION * TOTAL_TRANSACTIONS
 
-		var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
-		for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction(Schedule.genSchedule2(i, OPS_PER_TRANSACTION, TOTAL_OBJECTS), _2PL)
-		for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
-		println("all transactions started")
-		for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
+			val _2PL = 0
+			val TSO = 1
+			PDB.initStore()
+			VDB.initCache()
 
-		println("::////////////////////////////////\nall transactions finished\n\n\n\n")
-		val t1 = System.currentTimeMillis()
-		val t3 = (t1 - t0)/1000
-		println("Elapsed time: " + (t1 - t0) + "ms")
-		tps(i) = TOTAL_TRANSACTIONS/(t3+0.00001)
-		new Transaction(Schedule.genSchedule2(0, OPS_PER_TRANSACTION, TOTAL_OBJECTS), _2PL).resetCount()
+			var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
+			for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction(Schedule.genSchedule2(i, OPS_PER_TRANSACTION, TOTAL_OBJECTS), _2PL)
+			for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
+			println("all transactions started")
+			for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
 
-		TOTAL_TRANSACTIONS +=10
+			println("::////////////////////////////////\nall transactions finished\n\n\n\n")
+			val t1 = System.currentTimeMillis()
+			val t3 = t1-t0
+			println("Elapsed time: " + (t1 - t0) + "ms")
+			if (!Pattern.FAILURE)
+			{tps_temp(j)= TOTAL_TRANSACTIONS*1000 / (t3 )
+				actualNum += 1}
+			else count += 1
+			new Transaction(Schedule.genSchedule2(0, OPS_PER_TRANSACTION, TOTAL_OBJECTS), _2PL).resetCount()
+		}
+		tps_2PL(i) = tps_temp.sum/actualNum.toDouble
+		var temp =(TOTAL_TRANSACTIONS, count)
+		record2PL += temp
+		TOTAL_TRANSACTIONS += step
 
 	}
-	new plot.Plot(numberOfTransations,tps,null,"Tps VS NumofTransations")
 
-} // VDBTest2B
+	TOTAL_TRANSACTIONS = 10
+	for (i <-0 until numOfTest) {
+
+		numOfAverage =1
+		count = 0
+		for (j <-0 until numOfAverage) {
+			Pattern.FAILURE = false
+			var t0 = System.currentTimeMillis()
+
+			val TOTAL_OBJECTS = 500
+			var TOTAL_OPS = OPS_PER_TRANSACTION * TOTAL_TRANSACTIONS
+
+			val _2PL = 0
+			val TSO = 1
+			PDB.initStore()
+			VDB.initCache()
+
+			var transactions = Array.ofDim[Transaction](TOTAL_TRANSACTIONS)
+			for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i) = new Transaction(Schedule.genSchedule2(i, OPS_PER_TRANSACTION, TOTAL_OBJECTS), TSO)
+			for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i).start()
+			println("all transactions started")
+			for (i <- 0 until TOTAL_TRANSACTIONS) transactions(i).join()
+
+			println("::////////////////////////////////\nall transactions finished\n\n\n\n")
+			val t1 = System.currentTimeMillis()
+			val t3 = (t1 - t0)
+			println("Elapsed time: " + (t1 - t0) + "ms")
+			if (!Pattern.FAILURE)
+			{tps_temp(j)= TOTAL_TRANSACTIONS*1000 / (t3 )
+				actualNum += 1}
+			else count += 1
+			new Transaction(Schedule.genSchedule2(0, OPS_PER_TRANSACTION, TOTAL_OBJECTS), TSO).resetCount()
+		}
+		tps_TS(i) = tps_temp.sum/actualNum.toDouble
+
+		var temp =(TOTAL_TRANSACTIONS, count)
+		recordTSO += temp
+		TOTAL_TRANSACTIONS += step
+	}
+		Pattern.running = false
+		data.setCol(0,numberOfTransations)
+		data.setCol(1,tps_TS)
+		data.setCol(2,tps_2PL)
+		data.write("data")
+		println("trace"+record2PL.toString())
+		println("trace2"+recordTSO.toString())
+		new plot.Plot(numberOfTransations,tps_2PL,tps_TS,"Tps VS NumofTransactions")
+
+
+
+} // VDBTest3B
